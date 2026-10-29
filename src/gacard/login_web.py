@@ -287,6 +287,11 @@ def make_placeholder_png(text: str = "Đang tải ảnh captcha...") -> bytes:
     return buf.getvalue()
 
 
+class CaptchaHttpServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 class CaptchaWebServer:
     """Máy chủ captcha tạm, gắn với một Playwright page đang mở."""
 
@@ -375,63 +380,97 @@ class CaptchaWebServer:
                 self.send_header("Content-Type", ctype)
                 self.send_header("Content-Length", str(len(body)))
                 self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(body)
 
             def _deny(self) -> None:
+                body = b"Forbidden"
                 self.send_response(403)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Connection", "close")
                 self.end_headers()
+                self.wfile.write(body)
 
             def do_GET(self) -> None:
-                parsed = urlparse(self.path)
-                qs = parse_qs(parsed.query)
-                req_token = qs.get("t", [""])[0]
+                try:
+                    parsed = urlparse(self.path)
+                    if parsed.path == "/favicon.ico":
+                        self.send_response(204)
+                        self.send_header("Content-Length", "0")
+                        self.send_header("Connection", "close")
+                        self.end_headers()
+                        return
 
-                if req_token != server.token:
-                    print(f"[CaptchaWeb /shot] status=403, bytes=0, error=InvalidToken", flush=True)
-                    self._deny()
-                    return
+                    qs = parse_qs(parsed.query)
+                    req_token = qs.get("t", [""])[0]
 
-                if parsed.path == "/shot":
-                    data, fails = server.get_screenshot()
-                    if not data:
-                        data = make_placeholder_png("Đang tải ảnh captcha...")
-                    err_msg = "None" if fails < 3 else "CaptureFailed3Times"
-                    print(f"[CaptchaWeb /shot] status=200, bytes={len(data)}, error={err_msg}", flush=True)
-                    self._ok(data, "image/png")
-                    return
+                    if req_token != server.token:
+                        print(f"[CaptchaWeb /shot] status=403, bytes=0, error=InvalidToken", flush=True)
+                        self._deny()
+                        return
 
-                html = PAGE_HTML.replace("{token}", server.token)
-                self._ok(html.encode("utf-8"), "text/html; charset=utf-8")
+                    if parsed.path == "/shot":
+                        data, fails = server.get_screenshot()
+                        if not data:
+                            data = make_placeholder_png("Đang tải ảnh captcha...")
+                        err_msg = "None" if fails < 3 else "CaptureFailed3Times"
+                        print(f"[CaptchaWeb /shot] status=200, bytes={len(data)}, error={err_msg}", flush=True)
+                        self._ok(data, "image/png")
+                        return
+
+                    html = PAGE_HTML.replace("{token}", server.token)
+                    self._ok(html.encode("utf-8"), "text/html; charset=utf-8")
+                except Exception as exc:
+                    print(f"[CaptchaWeb] Loi xu ly do_GET: {exc}", flush=True)
+                    try:
+                        self.send_response(500)
+                        self.send_header("Content-Length", "0")
+                        self.send_header("Connection", "close")
+                        self.end_headers()
+                    except Exception:
+                        pass
 
             def do_POST(self) -> None:
-                parsed = urlparse(self.path)
                 try:
+                    parsed = urlparse(self.path)
                     length = int(self.headers.get("Content-Length") or 0)
                     raw_data = self.rfile.read(length) if length > 0 else b"{}"
                     payload = json.loads(raw_data.decode("utf-8"))
+
+                    if payload.get("t") != server.token:
+                        self._deny()
+                        return
+
+                    if parsed.path == "/drag":
+                        server.queue_drag(payload)
+                        self._ok(b"ok", "text/plain")
+                        return
+
+                    self._deny()
                 except Exception:
                     self._deny()
-                    return
 
-                if payload.get("t") != server.token:
-                    self._deny()
-                    return
+        bound = False
+        target_port = self.port
+        for p in range(target_port, target_port + 10):
+            try:
+                self._httpd = CaptchaHttpServer(("0.0.0.0", p), Handler)
+                self.port = p
+                bound = True
+                break
+            except OSError:
+                continue
+        if not bound:
+            raise OSError(f"Không thể mở cổng captcha trong khoảng {target_port}-{target_port + 9}")
 
-                if parsed.path == "/drag":
-                    server.queue_drag(payload)
-                    self._ok(b"ok", "text/plain")
-                    return
-
-                self._deny()
-
-        self._httpd = ThreadingHTTPServer(("0.0.0.0", self.port), Handler)
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
         self._thread.start()
         base = (base_url or "").rstrip("/")
         if base:
             return f"{base}/?t={self.token}"
-        return f"http://localhost:{self.port}/?t={self.token}"
+        return f"http://127.0.0.1:{self.port}/?t={self.token}"
 
     def stop(self) -> None:
         if self._httpd is not None:

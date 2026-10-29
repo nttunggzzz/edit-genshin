@@ -77,6 +77,10 @@ MESSAGES = {
         "Không tìm thấy form đăng nhập sau 30 giây (HoYoLAB có thể đã đổi giao diện). "
         "Đã lưu ảnh chụp màn hình vào web-out/debug-login-failed.png để debug."
     ),
+    "login_timeout_no_cookie": (
+        "Đã quá 300 giây nhưng HoYoLAB không trả về cookie phiên và không xuất hiện Captcha. "
+        "Đã lưu ảnh chụp màn hình vào web-out/debug-login-timeout.png để debug."
+    ),
     "no_cookie": (
         "Đăng nhập xong nhưng trình duyệt không trả đủ cookie HoYoLAB "
         "(cần ltuid_v2 và ltoken_v2). Đăng nhập lại hoyolab.com trên trình duyệt "
@@ -219,20 +223,50 @@ def _signed_in(page: Any) -> bool:
 
 
 def _captcha_visible(page: Any) -> bool:
-    """Slider có hiện không: kiểm tra CẢ khung chính lẫn các iframe.
+    """Slider có hiện không: kiểm tra CẢ khung chính lẫn các iframe với timeout cho từng frame.
+    Tuyệt đối không dùng frame.content() vì gây treo vô hạn khi frame đang chuyển hướng."""
+    CAPTCHA_SELECTORS = (
+        '.geetest_slider',
+        '.geetest_radar',
+        '.geetest_popup_wrap',
+        '.geetest_holder',
+        '[class*="geetest"]',
+        '[class*="captcha"]',
+        'div[class*="puzzle"]',
+    )
+    CAPTCHA_TEXT_PATTERNS = ("Trượt để hoàn thành", "Slide to complete", "Drag the slider", "Hoàn thành câu đố")
 
-    Lỗi cũ ở đây: chỉ đọc ``page.content()`` (khung chính) nên slider nằm
-    trong iframe đăng nhập của HoYoverse sẽ không bao giờ được phát hiện,
-    bot cứ chờ im lặng mà không nhắn gì cho người dùng.
-    """
     frames = [page] + list(getattr(page, "frames", []) or [])
     for frame in frames:
+        # 1. Thử tìm nhanh qua selector CSS
+        for sel in CAPTCHA_SELECTORS:
+            try:
+                loc = frame.locator(sel).first
+                if loc.count() > 0 and loc.is_visible():
+                    return True
+            except Exception:
+                pass
+
+        # 2. Thử tìm nhanh qua text locator
+        for text in CAPTCHA_TEXT_PATTERNS:
+            try:
+                t_loc = frame.get_by_text(text).first
+                if t_loc.count() > 0 and t_loc.is_visible():
+                    return True
+            except Exception:
+                pass
+
+        # 3. Đọc text body qua evaluate với timeout 1000ms (an toàn, không bao giờ treo)
         try:
-            body = frame.content()
+            body_text = frame.evaluate(
+                "() => { try { return document.body ? document.body.innerText : ''; } catch(e) { return ''; } }",
+                timeout=1000
+            )
+            if body_text and any(t in body_text for t in CAPTCHA_TEXT_PATTERNS):
+                return True
         except Exception:
-            continue
-        if any(t in body for t in CAPTCHA_TEXTS):
-            return True
+            pass
+
     return False
 
 
@@ -253,10 +287,22 @@ def _form_present(frame: Any) -> bool:
 
 def _click_login_trigger(page: Any, on_log: Callable[[str], None] | None = None) -> bool:
     """Bấm nút mở khung đăng nhập trên trang chủ HoYoLAB với timeout 5000ms."""
+    # 1. Đóng cookie banner nếu có
+    for cookie_sel in ('button:has-text("Accept")', 'button:has-text("Chấp nhận")', 'button:has-text("OK")', '.cookie-btn', '[class*="cookie"] button'):
+        try:
+            c = page.locator(cookie_sel).first
+            if c.count() > 0 and c.is_visible():
+                c.click(timeout=1000, force=True)
+        except Exception:
+            pass
+
+    # 2. Thử các nút mở đăng nhập
     candidates = []
     for label in ("Đăng Nhập", "Log In", "Login", "Sign In"):
         try:
             candidates.append((label, page.get_by_role("button", name=label).first))
+            candidates.append((label, page.locator(f'button:has-text("{label}")').first))
+            candidates.append((label, page.locator(f'a:has-text("{label}")').first))
             candidates.append((label, page.get_by_text(label, exact=True).first))
         except Exception:
             continue
@@ -265,12 +311,13 @@ def _click_login_trigger(page: Any, on_log: Callable[[str], None] | None = None)
             if loc.count() > 0 and loc.is_visible():
                 if on_log:
                     on_log(f"Tìm thấy nút mở đăng nhập '{label}', đang bấm...")
-                loc.click(timeout=5000)
+                try:
+                    loc.click(timeout=2000)
+                except Exception:
+                    loc.click(timeout=2000, force=True)
                 page.wait_for_timeout(2000)
                 return True
-        except Exception as e:
-            if on_log:
-                on_log(f"Lỗi khi bấm nút '{label}': {type(e).__name__}")
+        except Exception:
             continue
     return False
 
@@ -333,17 +380,37 @@ def login_with_password(
                 deadline = time.monotonic() + timeout_seconds
                 captcha_announced = False
                 web_server = None
+                last_log_time = 0.0
                 try:
                     while True:
-                        if _signed_in(page) and not _captcha_visible(page):
+                        now = time.monotonic()
+                        remaining = max(0, int(deadline - now))
+                        signed = _signed_in(page)
+                        has_captcha = _captcha_visible(page)
+
+                        # Log định kỳ mỗi 3 giây
+                        if now - last_log_time >= 3.0:
+                            last_log_time = now
+                            status_text = (
+                                f"Kiểm tra phản hồi HoYoLAB: đã có cookie={signed}, captcha hiện={has_captcha}, "
+                                f"còn lại {remaining}s / {int(timeout_seconds)}s"
+                            )
                             if on_stage:
-                                on_stage("fetching_data", "Đăng nhập thành công! Đang lấy cookie phiên...")
+                                stage_name = "waiting_captcha" if has_captcha else "logging_in"
+                                on_stage(stage_name, status_text)
+
+                        # 1. Đã có cookie ltuid_v2 và ltoken_v2 thật sự và không còn captcha
+                        if signed and not has_captcha:
+                            if on_stage:
+                                on_stage("fetching_data", "Đã xác nhận cookie phiên (ltuid_v2, ltoken_v2)! Bắt đầu cào dữ liệu...")
                             break
-                        if _captcha_visible(page):
+
+                        # 2. Phát hiện captcha
+                        if has_captcha:
                             if not captcha_announced:
                                 captcha_announced = True
                                 if on_stage:
-                                    on_stage("waiting_captcha", "Phát hiện captcha trượt! Đang mở trang web kéo captcha...")
+                                    on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn {remaining}s)...")
                                 if captcha_mode == "web":
                                     from gacard.login_web import CaptchaWebServer
 
@@ -354,21 +421,30 @@ def login_with_password(
                                         on_captcha(link)
                                 elif on_captcha is not None:
                                     on_captcha("")
-                            if time.monotonic() > deadline:
+
+                            if now > deadline:
                                 raise LoginError("captcha_timeout")
+
                             if web_server is not None:
                                 web_server.tick()
                                 page.wait_for_timeout(800)
                             else:
-                                page.wait_for_timeout(int(POLL_SECONDS * 1000))
+                                page.wait_for_timeout(1000)
                             continue
-                        if time.monotonic() > deadline:
-                            raise LoginError("login_failed")
-                        if web_server is not None:
-                            web_server.tick()
-                            page.wait_for_timeout(800)
-                        else:
-                            page.wait_for_timeout(int(POLL_SECONDS * 1000))
+
+                        # 3. Hết thời gian mà vẫn chưa có cookie và chưa thấy captcha
+                        if now > deadline:
+                            for out_dir in (Path("web-out"), Path("data/acc-card/web-out")):
+                                try:
+                                    out_dir.mkdir(parents=True, exist_ok=True)
+                                    page.screenshot(path=str(out_dir / "debug-login-timeout.png"), timeout=5000)
+                                    break
+                                except Exception:
+                                    pass
+                            raise LoginError("login_timeout_no_cookie")
+
+                        page.wait_for_timeout(1000)
+
                     cookies = build_cookie_headers(context.cookies())
                     return cookies
                 finally:
@@ -472,7 +548,7 @@ def _fill_login_form_sync(
                             on_log(f"[{elapsed}s] Đã tìm thấy nút submit '{b_sel}', đang bấm...")
                         btn.click(timeout=5000)
                         if on_log:
-                            on_log(f"[{elapsed}s] Đã gửi thông tin đăng nhập thành công!")
+                            on_log(f"[{elapsed}s] Đã gửi form, đang chờ HoYoLAB xác nhận...")
                         return True
                 except Exception as e:
                     if on_log:
@@ -485,7 +561,7 @@ def _fill_login_form_sync(
                     on_log(f"[{elapsed}s] Thử nhấn Enter trên ô mật khẩu...")
                 found_pass.press("Enter", timeout=5000)
                 if on_log:
-                    on_log(f"[{elapsed}s] Đã nhấn Enter gửi form!")
+                    on_log(f"[{elapsed}s] Đã nhấn Enter gửi form, đang chờ HoYoLAB xác nhận...")
                 return True
             except Exception:
                 pass

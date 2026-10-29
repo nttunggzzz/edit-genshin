@@ -38,3 +38,151 @@
 [19:57:54] [Job 1b7160f2] [0s] Đang điền mật khẩu...
 [19:57:54] [Job 1b7160f2] [0s] Đã tìm thấy nút submit 'button[type="submit"]', đang bấm...
 [19:57:55] [Job 1b7160f2] [0s] Đã gửi thông tin đăng nhập thành công!
+[20:02:58] [Job 1b7160f2] Lỗi đăng nhập: Đăng nhập HoYoLAB không thành công (sai tài khoản/mật khẩu, hoặc tài khoản cần xác minh thêm). Kiểm tra lại rồi thử lại.
+[20:04:07] [Job 5bad1eca] Khởi tạo job cho mã acc '111'. Trả về job_id ngay lập tức cho client.
+[20:04:07] [Job 5bad1eca] Bắt đầu xử lý ghép ảnh acc '111'...
+[20:04:07] [Job 5bad1eca] Khởi động trình duyệt Playwright...
+[20:04:10] [Job 5bad1eca] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[20:04:16] [Job 5bad1eca] Đang tìm và điền form đăng nhập HoYoLAB...
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[name="username"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[name="account"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[name="username"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[name="account"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:04:16] [Job 5bad1eca] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:04:16] [Job 5bad1eca] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[20:04:16] [Job 5bad1eca] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[20:04:16] [Job 5bad1eca] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[20:04:16] [Job 5bad1eca] [0s] Đang điền mật khẩu...
+[20:04:17] [Job 5bad1eca] [0s] Đã tìm thấy nút submit 'button[type="submit"]', đang bấm...
+[20:04:17] [Job 5bad1eca] [0s] Đã gửi thông tin đăng nhập thành công!
+[20:09:19] [Job 5bad1eca] Lỗi đăng nhập: Đăng nhập HoYoLAB không thành công (sai tài khoản/mật khẩu, hoặc tài khoản cần xác minh thêm). Kiểm tra lại rồi thử lại.
+[20:12:14] [Job 03a009d0] Khởi tạo job cho mã acc 'test_loop'. Trả về job_id ngay lập tức cho client.
+[20:12:14] [Job 03a009d0] Bắt đầu xử lý ghép ảnh acc 'test_loop'...
+[20:12:14] [Job 03a009d0] Khởi động trình duyệt Playwright...
+[20:12:15] [Job 03a009d0] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[20:12:31] [Job 03a009d0] Đang tìm và điền form đăng nhập HoYoLAB...
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[name="username"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[name="account"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[name="username"]'
+[20:12:31] [Job 03a009d0] [0s] Không thấy selector user: 'input[name="account"]'
+[20:12:31] [Job 03a009d0] [0s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...
+[20:12:31] [Job 03a009d0] Tìm thấy nút mở đăng nhập 'Log In', đang bấm...
+[20:12:36] [Job 03a009d0] Lỗi khi bấm nút 'Log In': TimeoutError
+[20:12:38] [Job 03a009d0] [7s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...
+[20:12:39] [Job 03a009d0] Tìm thấy nút mở đăng nhập 'Log In', đang bấm...
+[20:12:44] [Job 03a009d0] Lỗi khi bấm nút 'Log In': TimeoutError
+[20:12:46] [Job 03a009d0] [14s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...
+[20:12:46] [Job 03a009d0] Tìm thấy nút mở đăng nhập 'Log In', đang bấm...
+[20:12:51] [Job 03a009d0] Lỗi khi bấm nút 'Log In': TimeoutError
+[20:12:53] [Job 03a009d0] [21s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...
+[20:12:53] [Job 03a009d0] Tìm thấy nút mở đăng nhập 'Log In', đang bấm...
+[20:12:58] [Job 03a009d0] Lỗi khi bấm nút 'Log In': TimeoutError
+[20:13:00] [Job 03a009d0] [28s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...
+[20:13:00] [Job 03a009d0] Tìm thấy nút mở đăng nhập 'Log In', đang bấm...
+[20:13:05] [Job 03a009d0] Lỗi khi bấm nút 'Log In': TimeoutError
+[20:13:06] [Job 03a009d0] Đã lưu ảnh debug màn hình vào: web-out\debug-login-failed.png
+[20:13:06] [Job 03a009d0] Không tìm thấy form đăng nhập HoYoLAB sau 30 giây. Hủy job.
+[20:13:06] [Job 03a009d0] Lỗi đăng nhập: Không tìm thấy form đăng nhập sau 30 giây (HoYoLAB có thể đã đổi giao diện). Đã lưu ảnh chụp màn hình vào web-out/debug-login-failed.png để debug.
+[20:15:19] [Job 4d41adec] Khởi tạo job cho mã acc 'test_submit'. Trả về job_id ngay lập tức cho client.
+[20:15:19] [Job 4d41adec] Bắt đầu xử lý ghép ảnh acc 'test_submit'...
+[20:15:19] [Job 4d41adec] Khởi động trình duyệt Playwright...
+[20:15:20] [Job 4d41adec] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[20:15:25] [Job 4d41adec] Đang tìm và điền form đăng nhập HoYoLAB...
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[name="username"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[name="account"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[name="username"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[name="account"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:15:25] [Job 4d41adec] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:15:25] [Job 4d41adec] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[20:15:25] [Job 4d41adec] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[20:15:25] [Job 4d41adec] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[20:15:25] [Job 4d41adec] [0s] Đang điền mật khẩu...
+[20:15:25] [Job 4d41adec] [0s] Đã tìm thấy nút submit 'button[type="submit"]', đang bấm...
+[20:15:26] [Job 4d41adec] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[20:15:28] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
+[20:15:28] [Job 4d41adec] Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn 300s)...
+[20:15:29] [Job 4d41adec] HoYoLAB yêu cầu giải Captcha tại http://localhost:8766/?t=90dbd31ec06f7d2ab52f0119ade1b216
+[20:15:31] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
+[20:15:34] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 293s / 300s
+[20:15:38] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 289s / 300s
+[20:15:41] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 286s / 300s
+[20:15:45] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 282s / 300s
+[20:15:49] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 278s / 300s
+[20:15:52] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 275s / 300s
+[20:15:55] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 272s / 300s
+[20:15:58] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 269s / 300s
+[20:16:01] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 266s / 300s
+[20:16:05] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 262s / 300s
+[20:16:08] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 259s / 300s
+[20:16:11] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 256s / 300s
+[20:16:15] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 253s / 300s
+[20:16:18] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 250s / 300s
+[20:16:21] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 247s / 300s
+[20:16:24] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 244s / 300s
+[20:16:27] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 240s / 300s
+[20:16:30] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 237s / 300s
+[20:16:33] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 234s / 300s
+[20:16:36] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 231s / 300s
+[20:16:39] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 228s / 300s
+[20:16:42] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 225s / 300s
+[20:16:45] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 222s / 300s
+[20:16:48] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 219s / 300s
+[20:16:51] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 216s / 300s
+[20:16:54] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 213s / 300s
+[20:16:57] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 210s / 300s
+[20:17:00] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 207s / 300s
+[20:17:03] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 204s / 300s
+[20:17:06] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 201s / 300s
+[20:17:09] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 198s / 300s
+[20:17:13] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 194s / 300s
+[20:17:16] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 191s / 300s
+[20:17:20] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 187s / 300s
+[20:17:24] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 183s / 300s
+[20:17:28] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 179s / 300s
+[20:17:31] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 176s / 300s
+[20:17:34] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 173s / 300s
+[20:17:38] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 169s / 300s
+[20:17:42] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 165s / 300s
+[20:17:46] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 161s / 300s
+[20:17:50] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 157s / 300s
+[20:17:53] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 154s / 300s
+[20:17:56] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 151s / 300s
+[20:17:59] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 148s / 300s
+[20:18:02] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 145s / 300s
+[20:18:05] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 142s / 300s
+[20:18:08] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 139s / 300s
+[20:18:12] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 136s / 300s
+[20:18:15] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 133s / 300s
+[20:18:18] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 130s / 300s
+[20:18:22] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 126s / 300s
+[20:18:25] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 122s / 300s
+[20:18:28] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 119s / 300s
+[20:18:32] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 115s / 300s
+[20:18:35] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 112s / 300s
+[20:18:39] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 108s / 300s
+[20:18:43] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 104s / 300s
+[20:18:46] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 101s / 300s
+[20:18:49] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 98s / 300s
+[20:18:52] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 95s / 300s
