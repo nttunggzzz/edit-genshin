@@ -15,6 +15,7 @@ dist/
 # Output & temp directories
 output/
 web-out/
+debug/
 file tải/
 
 # Ignore general data folder, except acc-card templates and backgrounds

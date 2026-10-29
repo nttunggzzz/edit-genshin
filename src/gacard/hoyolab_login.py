@@ -230,11 +230,18 @@ def _captcha_visible(page: Any) -> bool:
         '.geetest_radar',
         '.geetest_popup_wrap',
         '.geetest_holder',
+        '.geetest_text_tips',
         '[class*="geetest"]',
         '[class*="captcha"]',
         'div[class*="puzzle"]',
     )
-    CAPTCHA_TEXT_PATTERNS = ("Trượt để hoàn thành", "Slide to complete", "Drag the slider", "Hoàn thành câu đố")
+    CAPTCHA_TEXT_PATTERNS = (
+        "Trượt để hoàn thành",
+        "Slide to complete",
+        "Drag the slider",
+        "Hoàn thành câu đố",
+        "Slide to complete the puzzle",
+    )
 
     frames = [page] + list(getattr(page, "frames", []) or [])
     for frame in frames:
@@ -268,6 +275,40 @@ def _captcha_visible(page: Any) -> bool:
             pass
 
     return False
+
+
+def _detect_login_error(page: Any) -> str | None:
+    """Quét các frame để tìm dòng báo lỗi đăng nhập (Vant toast, Element Plus error, v.v.)."""
+    ERROR_SELECTORS = (
+        '.van-toast__text',
+        '.van-toast',
+        '.el-form-item__error',
+        '.el-message__content',
+        '[class*="toast"]',
+        '[class*="error-text"]',
+        '[role="alert"]',
+    )
+    ERROR_KEYWORDS = (
+        "invalid", "incorrect", "error", "không chính xác", "không hợp lệ",
+        "thất bại", "không tồn tại", "lỗi", "too many", "quá nhiều", "not exist"
+    )
+    frames = [page] + list(getattr(page, "frames", []) or [])
+    for frame in frames:
+        for sel in ERROR_SELECTORS:
+            try:
+                locs = frame.locator(sel)
+                count = locs.count()
+                for i in range(count):
+                    el = locs.nth(i)
+                    if el.is_visible():
+                        txt = el.inner_text().strip()
+                        if txt and len(txt) < 150:
+                            lower = txt.lower()
+                            if any(k in lower for k in ERROR_KEYWORDS):
+                                return txt
+            except Exception:
+                continue
+    return None
 
 
 def _form_present(frame: Any) -> bool:
@@ -388,6 +429,13 @@ def login_with_password(
                         signed = _signed_in(page)
                         has_captcha = _captcha_visible(page)
 
+                        # 0. Kiểm tra nếu HoYoLAB hiển thị toast/alert báo lỗi đăng nhập (sai pass, sai format...) -> dừng ngay
+                        login_err = _detect_login_error(page)
+                        if login_err:
+                            if on_stage:
+                                on_stage("error", f"Đăng nhập thất bại: {login_err}")
+                            raise LoginError("login_failed", f"HoYoLAB báo: {login_err}")
+
                         # Log định kỳ mỗi 3 giây
                         if now - last_log_time >= 3.0:
                             last_log_time = now
@@ -482,9 +530,12 @@ def _fill_login_form_sync(
     )
     PASS_SELECTOR = 'input[type="password"]'
     SUBMIT_SELECTORS = (
+        'button.cmn-button[type="submit"]',
+        'button[type="submit"]:has-text("Log In")',
+        'button[type="submit"]:has-text("Đăng Nhập")',
         'button[type="submit"]',
-        'button:has-text("Đăng Nhập")',
         'button:has-text("Log In")',
+        'button:has-text("Đăng Nhập")',
         'button:has-text("Login")',
         'button:has-text("Sign In")',
     )
@@ -538,6 +589,7 @@ def _fill_login_form_sync(
             if on_log:
                 on_log(f"[{elapsed}s] Đang điền mật khẩu...")
             found_pass.fill(password, timeout=5000)
+            page.wait_for_timeout(500)
 
             # Bấm nút Đăng Nhập
             for b_sel in SUBMIT_SELECTORS:

@@ -186,3 +186,124 @@
 [20:18:46] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 101s / 300s
 [20:18:49] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 98s / 300s
 [20:18:52] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 95s / 300s
+[20:25:49] [Job 3d2aca1b] Khởi tạo job cho mã acc '3333'. Trả về job_id ngay lập tức cho client.
+[20:25:49] [Job 3d2aca1b] Bắt đầu xử lý ghép ảnh acc '3333'...
+[20:25:49] [Job 3d2aca1b] Khởi động trình duyệt Playwright...
+[20:25:50] [Job 3d2aca1b] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[20:25:54] [Job 3d2aca1b] Đang tìm và điền form đăng nhập HoYoLAB...
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[name="username"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[name="account"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[name="username"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[name="account"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:25:54] [Job 3d2aca1b] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:25:54] [Job 3d2aca1b] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[20:25:54] [Job 3d2aca1b] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[20:25:54] [Job 3d2aca1b] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[20:25:54] [Job 3d2aca1b] [0s] Đang điền mật khẩu...
+[20:25:54] [Job 3d2aca1b] [0s] Đã tìm thấy nút submit 'button[type="submit"]', đang bấm...
+[20:25:54] [Job 3d2aca1b] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[20:25:56] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 300s / 300s
+[20:25:59] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 296s / 300s
+[20:26:03] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 293s / 300s
+[20:26:06] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 289s / 300s
+[20:26:09] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 286s / 300s
+[20:26:13] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 283s / 300s
+[20:26:16] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 279s / 300s
+[20:26:20] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 276s / 300s
+[20:26:23] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 273s / 300s
+[20:26:26] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 269s / 300s
+[20:26:30] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 266s / 300s
+[20:26:33] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 262s / 300s
+[20:26:37] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 259s / 300s
+[20:26:40] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 256s / 300s
+[20:26:43] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 252s / 300s
+[20:26:47] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 249s / 300s
+[20:26:50] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 245s / 300s
+[20:26:54] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 242s / 300s
+[20:26:57] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 239s / 300s
+[20:27:00] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 235s / 300s
+[20:27:04] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 232s / 300s
+[20:27:07] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 228s / 300s
+[20:27:10] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 225s / 300s
+[20:27:14] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 222s / 300s
+[20:27:17] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 218s / 300s
+[20:27:20] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 215s / 300s
+[20:27:24] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 212s / 300s
+[20:27:27] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 208s / 300s
+[20:27:31] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 205s / 300s
+[20:27:34] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 202s / 300s
+[20:27:37] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 198s / 300s
+[20:27:41] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 195s / 300s
+[20:27:44] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 192s / 300s
+[20:27:47] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 188s / 300s
+[20:27:51] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 185s / 300s
+[20:27:54] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 181s / 300s
+[20:27:58] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 178s / 300s
+[20:28:01] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 175s / 300s
+[20:28:04] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 171s / 300s
+[20:28:08] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 168s / 300s
+[20:28:11] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 164s / 300s
+[20:28:15] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 161s / 300s
+[20:28:18] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 158s / 300s
+[20:28:21] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 154s / 300s
+[20:28:25] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 151s / 300s
+[20:28:28] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 148s / 300s
+[20:28:31] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 144s / 300s
+[20:28:35] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 141s / 300s
+[20:28:38] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 137s / 300s
+[20:28:42] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 134s / 300s
+[20:28:45] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 131s / 300s
+[20:28:48] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 127s / 300s
+[20:28:52] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 124s / 300s
+[20:28:55] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 120s / 300s
+[20:28:59] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 117s / 300s
+[20:29:02] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 113s / 300s
+[20:29:06] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 110s / 300s
+[20:29:10] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 106s / 300s
+[20:29:13] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 103s / 300s
+[20:29:16] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 99s / 300s
+[20:29:20] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 96s / 300s
+[20:29:23] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 93s / 300s
+[20:29:26] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 89s / 300s
+[20:29:30] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 86s / 300s
+[20:29:33] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 82s / 300s
+[20:29:37] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 79s / 300s
+[20:29:40] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 75s / 300s
+[20:29:44] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 72s / 300s
+[20:29:47] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 69s / 300s
+[20:29:50] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 65s / 300s
+[20:29:54] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 62s / 300s
+[20:29:57] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 58s / 300s
+[20:30:01] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 55s / 300s
+[20:30:04] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 52s / 300s
+[20:30:07] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 48s / 300s
+[20:30:11] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 45s / 300s
+[20:30:14] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 42s / 300s
+[20:30:17] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 38s / 300s
+[20:30:21] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 35s / 300s
+[20:30:24] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 31s / 300s
+[20:30:28] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 28s / 300s
+[20:30:31] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 24s / 300s
+[20:30:34] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 21s / 300s
+[20:30:38] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 18s / 300s
+[20:30:41] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 15s / 300s
+[20:30:44] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 11s / 300s
+[20:30:48] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 8s / 300s
+[20:30:51] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 4s / 300s
+[20:30:54] [Job 3d2aca1b] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=False, còn lại 1s / 300s
+[20:30:57] [Job 3d2aca1b] Lỗi đăng nhập: Đã quá 300 giây nhưng HoYoLAB không trả về cookie phiên và không xuất hiện Captcha. Đã lưu ảnh chụp màn hình vào web-out/debug-login-timeout.png để debug.
+[20:52:47] [Giai đoạn 2 Test 1 - Sai định dạng] Bắt đầu kiểm tra phát hiện lỗi nhanh...
+[20:52:50] [Giai đoạn 2 Test 1 - Sai định dạng] Đã gửi form với tài khoản sai định dạng...
+[20:52:56] [Giai đoạn 2 Test 1 - Sai định dạng] Phát hiện Vant toast lỗi: 'Invalid account format'. Dừng ngay sau 9.6s thay vì chờ 300s!
+[20:53:21] [Giai đoạn 2 Test 2 - Email hợp lệ] Bắt đầu kiểm tra nhận diện Geetest Captcha...
+[20:53:35] [Giai đoạn 2 Test 2 - Email hợp lệ] Đã gửi form, phát hiện Geetest v4 slider puzzle trong iframe!
+[20:53:36] [Giai đoạn 2 Test 2 - Email hợp lệ] Khởi động thành công CaptchaWebServer tại http://127.0.0.1:8765/?t=...
+[20:53:53] [Giai đoạn 2 Test 2 - Email hợp lệ] Hết thời gian chờ captcha mẫu, job kết thúc an toàn với LoginError: captcha_timeout.
