@@ -1,0 +1,20 @@
+{
+ "playerInfo": {
+  "nickname": "TestUser",
+  "level": 60,
+  "worldLevel": 9,
+  "finishAchievementNum": 770,
+  "towerFloorIndex": 11,
+  "towerLevelIndex": 3,
+  "isShowAvatarTalent": true,
+  "fetterCount": 24,
+  "towerStarIndex": 27,
+  "stygianIndex": 3,
+  "stygianSeconds": 171,
+  "stygianId": 5269012,
+  "nameCardId": 210001
+ },
+ "ttl": 60,
+ "uid": 800000001,
+ "region": "ASIA"
+}

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "backgrounds": [
+    {
+      "id": "columbina-319f3efd",
+      "character": "columbina",
+      "file": "columbina\\columbina-319f3efd.jpg",
+      "width": 2000,
+      "height": 1125,
+      "subject_side": "center",
+      "added_at": "2026-10-28T06:44:38.499435Z",
+      "used_count": 1,
+      "last_used_at": "2026-10-28T06:45:16.429258Z",
+      "source": "owner 28.jpg"
+    },
+    {
+      "id": "zibai-40a00d1d",
+      "character": "zibai",
+      "file": "zibai\\zibai-40a00d1d.jpg",
+      "width": 1920,
+      "height": 1108,
+      "subject_side": "left",
+      "added_at": "2026-10-28T06:44:38.537573Z",
+      "used_count": 11,
+      "last_used_at": "2026-10-29T08:19:43.355479Z",
+      "source": "owner 29.jpg"
+    },
+    {
+      "id": "flins-d6d28443",
+      "character": "flins",
+      "file": "flins\\flins-d6d28443.jpg",
+      "width": 1920,
+      "height": 1080,
+      "subject_side": "center",
+      "added_at": "2026-10-28T06:44:38.573116Z",
+      "used_count": 0,
+      "last_used_at": null,
+      "source": "owner 30.jpg"
+    },
+    {
+      "id": "nefer-4e007746",
+      "character": "nefer",
+      "file": "nefer\\nefer-4e007746.jpg",
+      "width": 1920,
+      "height": 1080,
+      "subject_side": "center",
+      "added_at": "2026-10-28T06:44:38.610669Z",
+      "used_count": 0,
+      "last_used_at": null,
+      "source": "owner 31.jpg"
+    }
+  ]
+}

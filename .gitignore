@@ -1,0 +1,33 @@
+# Python & virtual environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+
+# Local configuration & secrets
+.env
+*.log
+
+# Output & temp directories
+output/
+file tải/
+
+# Ignore general data folder, except acc-card templates and backgrounds
+data/*
+!data/acc-card/
+data/acc-card/*
+!data/acc-card/templates/
+data/acc-card/templates/*
+!data/acc-card/templates/banner/
+data/acc-card/templates/banner/*.psd
+data/acc-card/templates/banner/_inspect/
+!data/acc-card/backgrounds/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp

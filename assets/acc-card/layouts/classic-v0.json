@@ -1,0 +1,20 @@
+{
+  "id": "classic-v0",
+  "note": "Do thô từ ảnh mẫu data/acc-card/reference/mau-1043.jpg (2000x1125), quy về 1920x1080 (x0.96). Cần hiệu chỉnh lại khi có ảnh gốc.",
+  "canvas": { "width": 1920, "height": 1080, "background_fit": "cover", "background_focus": [0.42, 0.35] },
+  "frame_style": { "border_color": "#46C3E1", "border_width": 3, "radius": 6 },
+  "slots": [
+    { "name": "account_code",  "type": "text",  "pos": [91, 58],  "font": "display", "size": 46, "fill": "#FFFFFF", "stroke": "#2A7FC8", "stroke_width": 4, "source": "option:code", "template": "#{code}" },
+    { "name": "left_panels",   "type": "stack", "origin": [85, 284],  "cell": [330, 92], "count": 7, "gap": 13, "direction": "down",  "source": "screen:panels",     "framed": true },
+    { "name": "right_panels",  "type": "stack", "origin": [1006, 300], "cell": [323, 96], "count": 4, "gap": 16, "direction": "down",  "source": "screen:panels_numbered", "framed": true, "badge": { "source": "option:panel_numbers", "size": 52, "pos": [0.5, 0.5] } },
+    { "name": "uid_text",      "type": "text",  "center": [703, 544], "font": "display", "size": 44, "fill": "#FFFFFF", "stroke": "#2A7FC8", "stroke_width": 4, "source": "option:uid", "template": "CHECK BUILD UID {uid}", "optional": true },
+    { "name": "outfit_box",    "type": "image", "rect": [446, 636, 161, 91],  "source": "screen:outfit",        "framed": true, "optional": true },
+    { "name": "fate_count",    "type": "image", "rect": [656, 608, 96, 115],  "source": "screen:item_fate",     "framed": true },
+    { "name": "extra_item",    "type": "image", "rect": [792, 608, 96, 115],  "source": "screen:item_extra",    "framed": true, "optional": true },
+    { "name": "weapons",       "type": "grid",  "rect": [444, 741, 883, 265], "rows": 2, "cols": 8, "gap": 6, "fill": "row", "source": "screen:weapons",    "framed": true },
+    { "name": "profile",       "type": "image", "rect": [1356, 103, 480, 178], "source": "screen:profile",      "framed": true },
+    { "name": "characters",    "type": "grid",  "rect": [1356, 305, 480, 701], "rows": 6, "cols": 5, "gap": 5, "fill": "row", "source": "screen:characters", "framed": true },
+    { "name": "watermark",     "type": "text",  "center": [972, 1044], "font": "display", "size": 30, "fill": "#FFFFFFCC", "source": "option:watermark", "optional": true }
+  ],
+  "export": { "format": "jpeg", "quality": 90, "subsampling": "4:2:0", "max_bytes": 2000000 }
+}
