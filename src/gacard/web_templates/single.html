@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ghép 1 Acc - Edit Genshin Local</title>
+  <style>
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --surface-border: #334155;
+      --text: #f8fafc; --text-muted: #94a3b8; --primary: #38bdf8;
+      --primary-hover: #0284c7; --success: #22c55e; --warning: #f59e0b;
+      --error: #ef4444; --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 40px; }
+    .nav { background: var(--surface); border-bottom: 1px solid var(--surface-border); display: flex; gap: 8px; padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+    .nav a { color: var(--text-muted); text-decoration: none; padding: 8px 16px; border-radius: var(--radius); font-weight: 500; font-size: 14px; }
+    .nav a:hover, .nav a.active { background: var(--surface-border); color: var(--text); }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: var(--primary); }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+    .hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    input[type="text"], input[type="password"], select { width: 100%; padding: 10px 12px; background: #0b1120; border: 1px solid var(--surface-border); border-radius: var(--radius); color: var(--text); font-size: 14px; outline: none; }
+    input:focus, select:focus { border-color: var(--primary); }
+    .radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .radio-item { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+    .btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: var(--radius); font-weight: 600; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--surface-border); color: var(--text); }
+    .btn-secondary:hover { background: #475569; }
+    .btn-warning { background: var(--warning); color: #000; }
+    .status-box { padding: 16px; border-radius: var(--radius); margin-top: 16px; display: none; }
+    .status-running { background: rgba(56, 189, 248, 0.1); border: 1px solid var(--primary); color: var(--primary); }
+    .status-captcha { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning); color: #fde68a; }
+    .status-error { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); color: var(--error); }
+    .status-done { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); color: var(--success); }
+    .result-box { display: none; margin-top: 24px; }
+    .result-img-wrapper { margin-top: 16px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--surface-border); }
+    .result-img-wrapper img { width: 100%; height: auto; display: block; }
+    .result-actions { display: flex; gap: 12px; margin-top: 16px; }
+    .summary-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    .summary-table th, .summary-table td { padding: 8px 12px; border-bottom: 1px solid var(--surface-border); text-align: left; }
+    .summary-table th { color: var(--text-muted); width: 180px; }
+    .captcha-actions { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/single" class="active">Ghép 1 Acc</a>
+    <a href="/batch">Ghép Hàng Loạt (Excel)</a>
+    <a href="/backgrounds">Thư Viện Ảnh Nền</a>
+    <a href="/settings">Cài Đặt Kiểu Edit</a>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h1>Ghép Ảnh Thẻ Tài Khoản Genshin</h1>
+      <form id="singleForm">
+        <div class="form-group">
+          <label>Tài khoản HoYoLAB *</label>
+          <input type="text" id="username" name="username" required placeholder="Email hoặc tên đăng nhập HoYoLAB">
+          <div class="hint">Tài khoản chỉ dùng tạm trong lần đăng nhập này, không lưu lại.</div>
+        </div>
+
+        <div class="form-group">
+          <label>Mật khẩu HoYoLAB *</label>
+          <input type="password" id="password" name="password" required placeholder="Mật khẩu HoYoLAB">
+          <div class="hint">Mật khẩu được xóa khỏi bộ nhớ ngay sau khi đăng nhập xong.</div>
+        </div>
+
+        <div class="form-group">
+          <label>Mã acc *</label>
+          <input type="text" id="code" name="code" required placeholder="Ví dụ: 11171 hoặc CN#1076">
+          <div class="hint">1-16 ký tự chữ, số, gạch ngang, gạch dưới, hoặc dấu #</div>
+        </div>
+
+        <div class="form-group">
+          <label>Chế độ chọn hình nền</label>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="bg_mode" value="auto" checked onchange="onBgModeChange()">
+              Tự động (chọn ngẫu nhiên trong số nhân vật sở hữu trong acc)
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="bg_mode" value="character" onchange="onBgModeChange()">
+              Theo tên nhân vật
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="bg_mode" value="specific" onchange="onBgModeChange()">
+              Chọn hình nền cụ thể từ thư viện
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="bgCharGroup" style="display: none;">
+          <label>Tên nhân vật chọn nền</label>
+          <input type="text" id="bg_character" placeholder="Ví dụ: columbina, flins, zibai, raiden...">
+        </div>
+
+        <div class="form-group" id="bgSpecificGroup" style="display: none;">
+          <label>Chọn ID hình nền</label>
+          <select id="bg_id">
+            <option value="">-- Đang tải danh sách nền... --</option>
+          </select>
+        </div>
+
+        <div style="margin: 20px 0; border-top: 1px solid var(--surface-border); padding-top: 16px;">
+          <h2>Tùy chỉnh kiểu hiển thị (Tùy chọn)</h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>Màu khung viền</label>
+              <select id="frame_color">
+                <option value="">Mặc định (Cyan)</option>
+                <option value="auto">Tự động (đoán theo màu nền)</option>
+                <option value="red">Đỏ (red)</option>
+                <option value="pink">Hồng (pink)</option>
+                <option value="purple">Tím (purple)</option>
+                <option value="green">Xanh lá (green)</option>
+                <option value="blue">Xanh dương (blue)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Chiều cao ảnh thẻ</label>
+              <select id="height">
+                <option value="1080">1080p (1920×1080 Chuẩn)</option>
+                <option value="720">720p (1280×720 Thu nhỏ)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Dòng chữ Watermark</label>
+            <input type="text" id="watermark" placeholder="Để trống nếu không muốn chèn watermark">
+          </div>
+        </div>
+
+        <button type="submit" class="btn" id="submitBtn">Bắt đầu Ghép Ảnh</button>
+      </form>
+
+      <!-- Hộp trạng thái tiến trình -->
+      <div id="statusBox" class="status-box">
+        <div id="statusTitle" style="font-weight: 600; font-size: 15px;"></div>
+        <div id="statusDesc" style="font-size: 13px; margin-top: 4px;"></div>
+        <div id="captchaArea" style="display: none; margin-top: 12px;">
+          <div style="font-weight: 600; color: #fbbf24;">HoYoLAB yêu cầu kéo Captcha xác minh:</div>
+          <div class="captcha-actions">
+            <a id="captchaBtn" href="#" target="_blank" class="btn btn-warning">Mở trang kéo Captcha</a>
+            <span id="countdownText" style="font-size: 13px; color: var(--text-muted);"></span>
+          </div>
+          <div style="margin-top: 8px;">
+            <input type="text" id="captchaLinkInput" readonly style="font-size: 12px; color: var(--text-muted);">
+          </div>
+        </div>
+      </div>
+
+      <!-- Khung hiển thị kết quả -->
+      <div id="resultBox" class="result-box">
+        <h2>Kết Quả Ảnh Thẻ Đã Ghép</h2>
+        <div class="result-actions">
+          <a id="downloadBtn" href="#" class="btn" download>Tải Ảnh Về Máy</a>
+          <button id="rerollBtn" type="button" class="btn btn-secondary" onclick="rerollBackground()">Đổi Nền Khác</button>
+        </div>
+        <div class="result-img-wrapper">
+          <img id="resultImg" src="" alt="Ảnh thẻ Genshin">
+        </div>
+        <table class="summary-table">
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentJobId = null;
+    let pollTimer = null;
+    let captchaTimer = null;
+    let availableBackgrounds = [];
+
+    // Tải cài đặt mặc định và danh sách nền khi mở trang
+    window.addEventListener('DOMContentLoaded', async () => {
+      loadSettings();
+      loadBackgrounds();
+    });
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const s = await res.json();
+          if (s.frame_color) document.getElementById('frame_color').value = s.frame_color;
+          if (s.height) document.getElementById('height').value = s.height;
+          if (s.watermark) document.getElementById('watermark').value = s.watermark;
+          if (s.default_bg_mode) {
+            const r = document.querySelector(`input[name="bg_mode"][value="${s.default_bg_mode}"]`);
+            if (r) { r.checked = true; onBgModeChange(); }
+          }
+          if (s.default_bg_character) {
+            document.getElementById('bg_character').value = s.default_bg_character;
+          }
+        }
+      } catch (e) { console.error('Lỗi tải cài đặt:', e); }
+    }
+
+    async function loadBackgrounds() {
+      try {
+        const res = await fetch('/api/backgrounds');
+        if (res.ok) {
+          availableBackgrounds = await res.json();
+          const sel = document.getElementById('bg_id');
+          sel.innerHTML = '<option value="">-- Chọn hình nền --</option>';
+          availableBackgrounds.forEach(bg => {
+            const opt = document.createElement('option');
+            opt.value = bg.id;
+            opt.textContent = `${bg.character} (${bg.id}) [${bg.width}x${bg.height}]`;
+            sel.appendChild(opt);
+          });
+        }
+      } catch (e) { console.error('Lỗi tải nền:', e); }
+    }
+
+    function onBgModeChange() {
+      const mode = document.querySelector('input[name="bg_mode"]:checked').value;
+      document.getElementById('bgCharGroup').style.display = mode === 'character' ? 'block' : 'none';
+      document.getElementById('bgSpecificGroup').style.display = mode === 'specific' ? 'block' : 'none';
+    }
+
+    document.getElementById('singleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('code').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const bg_mode = document.querySelector('input[name="bg_mode"]:checked').value;
+      const bg_character = document.getElementById('bg_character').value.trim();
+      const bg_id = document.getElementById('bg_id').value;
+      const frame_color = document.getElementById('frame_color').value;
+      const height = parseInt(document.getElementById('height').value) || 1080;
+      const watermark = document.getElementById('watermark').value.trim();
+
+      // Reset UI
+      document.getElementById('resultBox').style.display = 'none';
+      clearInterval(pollTimer);
+      clearInterval(captchaTimer);
+      captchaTimer = null;
+
+      showStatus('status-running', 'Đang đăng nhập HoYoLAB...', 'Trình duyệt đang khởi động và kết nối máy chủ HoYoLAB...');
+
+      try {
+        const res = await fetch('/api/single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code, username, password, bg_mode, bg_character, bg_id,
+            frame_color, height, watermark
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus('status-error', 'Không thể khởi tạo', data.error || 'Lỗi không xác định');
+          return;
+        }
+        currentJobId = data.job_id;
+        if (data.stage_message) {
+          document.getElementById('statusDesc').textContent = data.stage_message;
+        }
+        startPolling(currentJobId);
+      } catch (err) {
+        showStatus('status-error', 'Lỗi kết nối', err.message);
+      }
+    });
+
+    function showStatus(cls, title, desc) {
+      const box = document.getElementById('statusBox');
+      box.className = 'status-box ' + cls;
+      box.style.display = 'block';
+      document.getElementById('statusTitle').textContent = title;
+      document.getElementById('statusDesc').textContent = desc;
+      document.getElementById('captchaArea').style.display = 'none';
+    }
+
+    function startPolling(jobId) {
+      // Poll ngay lập tức lần đầu tiên (< 50ms)
+      fetchJob(jobId);
+      // Lặp lại định kỳ mỗi 2 giây
+      pollTimer = setInterval(() => fetchJob(jobId), 2000);
+    }
+
+    async function fetchJob(jobId) {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+        handleJobUpdate(job);
+      } catch (e) {
+        console.error('Poll error:', e);
+      }
+    }
+
+    function handleJobUpdate(job) {
+      if (job.status === 'logging_in') {
+        showStatus('status-running', 'Đang đăng nhập HoYoLAB...', job.stage_message || 'Trình duyệt đang kết nối máy chủ HoYoLAB và điền tài khoản...');
+      } else if (job.status === 'waiting_captcha') {
+        const box = document.getElementById('statusBox');
+        box.className = 'status-box status-captcha';
+        box.style.display = 'block';
+        document.getElementById('statusTitle').textContent = 'Cần xác minh Captcha';
+        document.getElementById('statusDesc').textContent = job.stage_message || 'HoYoLAB yêu cầu kéo thanh trượt ghép hình. Vui lòng bấm nút dưới đây để kéo:';
+        const cArea = document.getElementById('captchaArea');
+        cArea.style.display = 'block';
+        document.getElementById('captchaBtn').href = job.captcha_link || '#';
+        document.getElementById('captchaLinkInput').value = job.captcha_link || '';
+
+        // Đếm ngược 120s
+        if (!captchaTimer && job.captcha_deadline) {
+          updateCountdown(job.captcha_deadline);
+          captchaTimer = setInterval(() => updateCountdown(job.captcha_deadline), 1000);
+        }
+      } else if (job.status === 'fetching_data') {
+        clearInterval(captchaTimer);
+        captchaTimer = null;
+        showStatus('status-running', 'Đang lấy dữ liệu HoYoLAB...', job.stage_message || 'Đã đăng nhập thành công! Đang lấy danh sách nhân vật, vũ khí, thám hiểm, lịch sử roll...');
+      } else if (job.status === 'rendering') {
+        clearInterval(captchaTimer);
+        captchaTimer = null;
+        showStatus('status-running', 'Đang vẽ ảnh thẻ 1920×1080...', job.stage_message || 'Đang xử lý layout, áp dụng hình nền và render ảnh...');
+      } else if (job.status === 'done') {
+        clearInterval(pollTimer);
+        clearInterval(captchaTimer);
+        showStatus('status-done', 'Ghép ảnh thành công!', job.stage_message || 'Ảnh thẻ đã được tạo hoàn tất.');
+        renderResult(job);
+      } else if (job.status === 'error') {
+        clearInterval(pollTimer);
+        clearInterval(captchaTimer);
+        showStatus('status-error', 'Ghép ảnh thất bại', job.error || job.stage_message || 'Đã có lỗi xảy ra.');
+      }
+    }
+
+    function updateCountdown(deadline) {
+      const remaining = Math.max(0, Math.round(deadline - Date.now() / 1000));
+      document.getElementById('countdownText').textContent = `Thời gian còn lại: ${remaining}s`;
+      if (remaining <= 0) clearInterval(captchaTimer);
+    }
+
+    function renderResult(job) {
+      const resBox = document.getElementById('resultBox');
+      resBox.style.display = 'block';
+      const img = document.getElementById('resultImg');
+      img.src = job.image_url + '?t=' + Date.now();
+      const dl = document.getElementById('downloadBtn');
+      dl.href = `/download/${job.image_filename}`;
+      dl.setAttribute('download', job.download_name || `acc-${job.code}.jpg`);
+
+      const tbody = document.getElementById('summaryBody');
+      tbody.innerHTML = '';
+      const s = job.summary || {};
+      const rows = [
+        ['Mã tài khoản', job.code],
+        ['UID Genshin', s.uid || 'Không xác định'],
+        ['Nickname', s.nickname || 'Không có'],
+        ['Hạng Mạo Hiểm (AR)', s.ar || '?'],
+        ['Nhân vật sở hữu', `${s.chars_drawn || 0} đã vẽ / ${s.chars_total || 0} tổng`],
+        ['Vũ khí', `${s.weapons_drawn || 0} đã vẽ / ${s.weapons_total || 0} trang bị`],
+        ['Thẻ thám hiểm', s.explorations ? s.explorations.join(', ') : 'Không có thẻ < 40%'],
+        ['Hình nền đã dùng', s.background_desc || 'Mặc định'],
+        ['Ô Banner Roll', s.wish_info || 'Không có']
+      ];
+      rows.forEach(([k, v]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<th>${k}</th><td>${v}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function rerollBackground() {
+      if (!currentJobId) return;
+      const btn = document.getElementById('rerollBtn');
+      btn.disabled = true;
+      btn.textContent = 'Đang đổi nền...';
+      try {
+        const res = await fetch(`/api/jobs/${currentJobId}/reroll-bg`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          handleJobUpdate(data);
+        } else {
+          alert('Không thể đổi nền: ' + (data.error || 'Lỗi'));
+        }
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Đổi Nền Khác';
+      }
+    }
+  </script>
+</body>
+</html>

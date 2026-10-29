@@ -1,0 +1,44 @@
+{
+ "version": 1,
+ "size": [
+  271,
+  149
+ ],
+ "background": "limited.png",
+ "own_frame": true,
+ "slots": {
+  "N": {
+   "bbox": [
+    84,
+    93,
+    186,
+    141
+   ],
+   "font": "display",
+   "size": 23,
+   "color": "#564F50",
+   "align": "center",
+   "stroke": 0,
+   "stroke_color": "#FFFFFF",
+   "max_lines": 1
+  },
+  "ANH": {
+   "bbox": [
+    39,
+    8,
+    232,
+    93
+   ],
+   "font": "display",
+   "size": 48,
+   "color": "#3C3C3C",
+   "align": "center",
+   "stroke": 0,
+   "stroke_color": "#FFFFFF",
+   "max_lines": 1,
+   "inset": 6,
+   "fill": "#F2EED7"
+  }
+ },
+ "anh_default": "Skirk"
+}

@@ -1,0 +1,80 @@
+{
+ "version": 1,
+ "size": [
+  271,
+  106
+ ],
+ "background": "lech.png",
+ "own_frame": true,
+ "slots": {
+  "N": {
+   "bbox": [
+    84,
+    50,
+    186,
+    98
+   ],
+   "font": "display",
+   "size": 25,
+   "color": "#514745",
+   "align": "center",
+   "stroke": 0,
+   "stroke_color": "#FFFFFF",
+   "max_lines": 1
+  },
+  "TEN": {
+   "bbox": [
+    43,
+    10,
+    228,
+    48
+   ],
+   "font": "display",
+   "size": 21,
+   "color": "#C27340",
+   "align": "center",
+   "stroke": 0,
+   "stroke_color": "#FFFFFF",
+   "max_lines": 2
+  }
+ },
+ "two_line": {
+  "size": [
+   271,
+   130
+  ],
+  "background": "lech2.png",
+  "slots": {
+   "N": {
+    "bbox": [
+     84,
+     74,
+     186,
+     122
+    ],
+    "font": "display",
+    "size": 25,
+    "color": "#514745",
+    "align": "center",
+    "stroke": 0,
+    "stroke_color": "#FFFFFF",
+    "max_lines": 1
+   },
+   "TEN": {
+    "bbox": [
+     43,
+     10,
+     228,
+     72
+    ],
+    "font": "display",
+    "size": 21,
+    "color": "#C27340",
+    "align": "center",
+    "stroke": 0,
+    "stroke_color": "#FFFFFF",
+    "max_lines": 2
+   }
+  }
+ }
+}

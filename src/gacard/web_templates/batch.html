@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ghép Hàng Loạt (Excel) - Edit Genshin Local</title>
+  <style>
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --surface-border: #334155;
+      --text: #f8fafc; --text-muted: #94a3b8; --primary: #38bdf8;
+      --primary-hover: #0284c7; --success: #22c55e; --warning: #f59e0b;
+      --error: #ef4444; --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 40px; }
+    .nav { background: var(--surface); border-bottom: 1px solid var(--surface-border); display: flex; gap: 8px; padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+    .nav a { color: var(--text-muted); text-decoration: none; padding: 8px 16px; border-radius: var(--radius); font-weight: 500; font-size: 14px; }
+    .nav a:hover, .nav a.active { background: var(--surface-border); color: var(--text); }
+    .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+    .card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: var(--primary); }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    input[type="file"] { width: 100%; padding: 10px; background: #0b1120; border: 1px dashed var(--surface-border); border-radius: var(--radius); color: var(--text); font-size: 14px; cursor: pointer; }
+    .btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: var(--radius); font-weight: 600; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #000; }
+    .btn-secondary { background: var(--surface-border); color: var(--text); font-size: 12px; padding: 4px 10px; }
+    .btn-secondary:hover { background: #475569; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .badge-pending { background: #334155; color: #94a3b8; }
+    .badge-running { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
+    .badge-done { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .badge-error { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+    .batch-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    .batch-table th, .batch-table td { padding: 10px 12px; border-bottom: 1px solid var(--surface-border); text-align: left; vertical-align: middle; }
+    .batch-table th { background: #0b1120; color: var(--text-muted); }
+    .progress-bar-bg { width: 100%; height: 8px; background: var(--surface-border); border-radius: 4px; overflow: hidden; margin-top: 12px; }
+    .progress-bar-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+    .summary-box { display: flex; gap: 24px; align-items: center; padding: 16px; background: #0b1120; border-radius: var(--radius); margin-top: 16px; }
+    .summary-stat { font-size: 14px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/single">Ghép 1 Acc</a>
+    <a href="/batch" class="active">Ghép Hàng Loạt (Excel)</a>
+    <a href="/backgrounds">Thư Viện Ảnh Nền</a>
+    <a href="/settings">Cài Đặt Kiểu Edit</a>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h1>Ghép Hàng Loạt Từ File Excel / CSV</h1>
+      <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 20px; font-size: 13px;">
+        <strong>Quy định cột trong file Excel/CSV (theo đúng thứ tự):</strong>
+        <ol style="margin-left: 20px; margin-top: 6px; line-height: 1.6;">
+          <li><strong>Cột 1:</strong> Mã acc (ví dụ <code>11171</code>, <code>CN#1076</code>)</li>
+          <li><strong>Cột 2:</strong> Tài khoản HoYoLAB (Email hoặc Username)</li>
+          <li><strong>Cột 3:</strong> Mật khẩu HoYoLAB</li>
+          <li><strong>Cột 4 (tùy chọn):</strong> Nền (tên nhân vật hoặc ID nền, để trống là tự động)</li>
+          <li><strong>Cột 5 (tùy chọn):</strong> Màu khung viền (cyan, red, pink, purple, green, blue...)</li>
+        </ol>
+        <div class="hint" style="margin-top: 6px;">* Hàng tiêu đề sẽ tự động được bỏ qua. Các tài khoản được xử lý tuần tự từng acc một. File gốc sẽ được xóa ngay sau khi nạp danh sách để bảo mật mật khẩu.</div>
+      </div>
+
+      <form id="batchForm">
+        <div class="form-group">
+          <label>Chọn file Excel (.xlsx) hoặc file CSV *</label>
+          <input type="file" id="batchFile" accept=".xlsx,.csv" required>
+        </div>
+        <button type="submit" class="btn" id="startBatchBtn">Bắt Đầu Chạy Lô</button>
+      </form>
+
+      <!-- Tiến trình lô -->
+      <div id="batchProgressArea" style="display: none; margin-top: 24px;">
+        <h2>Tiến Trình Chạy Lô</h2>
+        <div class="progress-bar-bg">
+          <div id="progressBar" class="progress-bar-fill"></div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-stat">Tổng cộng: <strong id="statTotal">0</strong></div>
+          <div class="summary-stat" style="color: var(--success);">Thành công: <strong id="statSuccess">0</strong></div>
+          <div class="summary-stat" style="color: var(--error);">Thất bại: <strong id="statError">0</strong></div>
+          <div style="margin-left: auto;">
+            <a id="downloadZipBtn" href="#" class="btn btn-success" style="display: none;">Tải Tất Cả Ảnh (ZIP)</a>
+          </div>
+        </div>
+
+        <table class="batch-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th style="width: 120px;">Mã Acc</th>
+              <th style="width: 120px;">UID</th>
+              <th style="width: 110px;">Trạng Thái</th>
+              <th>Ghi Chú / Nền / Lý Do Lỗi</th>
+              <th style="width: 140px; text-align: center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="batchTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentBatchId = null;
+    let pollTimer = null;
+
+    document.getElementById('batchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('batchFile');
+      if (!fileInput.files.length) return;
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const btn = document.getElementById('startBatchBtn');
+      btn.disabled = true;
+      btn.textContent = 'Đang phân tích file...';
+
+      try {
+        const res = await fetch('/api/batch', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert('Lỗi: ' + (data.error || 'Không thể bắt đầu lô'));
+          btn.disabled = false;
+          btn.textContent = 'Bắt Đầu Chạy Lô';
+          return;
+        }
+        currentBatchId = data.batch_id;
+        document.getElementById('batchProgressArea').style.display = 'block';
+        startPolling(currentBatchId);
+      } catch (err) {
+        alert('Lỗi gửi file: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Bắt Đầu Chạy Lô';
+      }
+    });
+
+    function startPolling(batchId) {
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/batch/${batchId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          renderBatch(data);
+          if (data.status === 'done' || data.status === 'stopped') {
+            clearInterval(pollTimer);
+            document.getElementById('startBatchBtn').disabled = false;
+            document.getElementById('startBatchBtn').textContent = 'Bắt Đầu Chạy Lô';
+          }
+        } catch (e) { console.error('Poll error:', e); }
+      }, 2000);
+    }
+
+    function renderBatch(b) {
+      document.getElementById('statTotal').textContent = b.total || 0;
+      document.getElementById('statSuccess').textContent = b.success_count || 0;
+      document.getElementById('statError').textContent = b.error_count || 0;
+
+      const pct = b.total > 0 ? Math.round(((b.success_count + b.error_count) / b.total) * 100) : 0;
+      document.getElementById('progressBar').style.width = pct + '%';
+
+      if (b.status === 'done' && b.success_count > 0) {
+        const zipBtn = document.getElementById('downloadZipBtn');
+        zipBtn.style.display = 'inline-flex';
+        zipBtn.href = `/api/batch/${b.id}/download-zip`;
+      }
+
+      const tbody = document.getElementById('batchTableBody');
+      tbody.innerHTML = '';
+      (b.rows || []).forEach(r => {
+        const tr = document.createElement('tr');
+        let badgeCls = 'badge-pending';
+        let statusText = r.status;
+        if (r.status === 'Đang chạy') badgeCls = 'badge-running';
+        else if (r.status === 'Xong') badgeCls = 'badge-done';
+        else if (r.status === 'Lỗi') badgeCls = 'badge-error';
+
+        let actionHtml = '-';
+        if (r.image_url) {
+          actionHtml = `
+            <a href="${r.image_url}" target="_blank" class="btn btn-secondary">Xem</a>
+            <a href="/download/${r.download_filename}" class="btn btn-secondary" download>Tải</a>
+          `;
+        }
+
+        tr.innerHTML = `
+          <td>${r.stt}</td>
+          <td><strong>${r.code || '-'}</strong></td>
+          <td>${r.uid || '-'}</td>
+          <td><span class="badge ${badgeCls}">${statusText}</span></td>
+          <td>${r.reason || r.background || '-'}</td>
+          <td style="text-align: center;">${actionHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>

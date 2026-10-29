@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edit-genshin"
+version = "0.1.0"
+description = "Genshin Impact Account Card Generator & Telegram Bot: Ghép và xuất ảnh thẻ mô tả account Genshin Impact 1920x1080 tự động từ HoYoLAB / UID"
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.7,<3",
+  "pillow>=10.4",
+  "numpy>=1.26",
+  "opencv-python-headless>=4.10",
+  "imagehash>=4.3",
+  "aiogram>=3.13,<4",
+  "requests>=2.31",
+  "aiohttp>=3.9",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+]
+login = [
+  # Chỉ cần cho lệnh /ghep <tài khoản>-<mật khẩu> (Playwright mở trình duyệt thật).
+  # Chế độ /ghep <UID> cũ, /uid và ghép ảnh chụp không cần gói này.
+  "playwright>=1.40",
+]
+
+[project.scripts]
+gacard = "gacard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/acc_card"]
+addopts = "-q"

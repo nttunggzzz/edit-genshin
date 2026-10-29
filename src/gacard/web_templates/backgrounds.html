@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thư Viện Ảnh Nền - Edit Genshin Local</title>
+  <style>
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --surface-border: #334155;
+      --text: #f8fafc; --text-muted: #94a3b8; --primary: #38bdf8;
+      --primary-hover: #0284c7; --success: #22c55e; --warning: #f59e0b;
+      --error: #ef4444; --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 40px; }
+    .nav { background: var(--surface); border-bottom: 1px solid var(--surface-border); display: flex; gap: 8px; padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+    .nav a { color: var(--text-muted); text-decoration: none; padding: 8px 16px; border-radius: var(--radius); font-weight: 500; font-size: 14px; }
+    .nav a:hover, .nav a.active { background: var(--surface-border); color: var(--text); }
+    .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+    .card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: var(--primary); }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    input[type="text"], input[type="file"], select { width: 100%; padding: 10px 12px; background: #0b1120; border: 1px solid var(--surface-border); border-radius: var(--radius); color: var(--text); font-size: 14px; outline: none; }
+    .btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: var(--radius); font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-danger { background: rgba(239, 68, 68, 0.2); color: var(--error); border: 1px solid var(--error); padding: 4px 8px; font-size: 12px; }
+    .btn-danger:hover { background: var(--error); color: #fff; }
+    .bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+    .bg-item { background: #0b1120; border: 1px solid var(--surface-border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+    .bg-thumb-wrap { width: 100%; aspect-ratio: 16/9; background: #020617; overflow: hidden; position: relative; }
+    .bg-thumb { width: 100%; height: 100%; object-fit: cover; }
+    .bg-info { padding: 12px; font-size: 12px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .bg-actions { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--surface-border); display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/single">Ghép 1 Acc</a>
+    <a href="/batch">Ghép Hàng Loạt (Excel)</a>
+    <a href="/backgrounds" class="active">Thư Viện Ảnh Nền</a>
+    <a href="/settings">Cài Đặt Kiểu Edit</a>
+  </nav>
+
+  <div class="container">
+    <!-- Form thêm hình nền -->
+    <div class="card">
+      <h1>Thêm Hình Nền Mới Vào Kho</h1>
+      <form id="addBgForm">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label>Tên nhân vật (slug chữ thường, không dấu) *</label>
+            <input type="text" id="newCharacter" placeholder="Ví dụ: columbina, flins, raiden..." required>
+          </div>
+          <div class="form-group">
+            <label>File ảnh (Tối thiểu 1920×1080) *</label>
+            <input type="file" id="newFile" accept="image/*" required>
+          </div>
+        </div>
+        <button type="submit" class="btn" id="uploadBtn">Tải Lên Thư Viện</button>
+      </form>
+    </div>
+
+    <!-- Danh sách nền hiện có -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Kho Ảnh Nền Hiện Có (<span id="bgCount">0</span>)</h2>
+        <div>
+          <input type="text" id="searchBox" placeholder="Tìm theo tên nhân vật..." oninput="filterBackgrounds()" style="width: 220px; padding: 6px 10px; font-size: 13px;">
+        </div>
+      </div>
+      <div id="bgGrid" class="bg-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    let allBackgrounds = [];
+
+    window.addEventListener('DOMContentLoaded', loadBackgrounds);
+
+    async function loadBackgrounds() {
+      try {
+        const res = await fetch('/api/backgrounds');
+        if (res.ok) {
+          allBackgrounds = await res.json();
+          renderGrid(allBackgrounds);
+        }
+      } catch (e) { console.error('Lỗi tải nền:', e); }
+    }
+
+    function filterBackgrounds() {
+      const q = document.getElementById('searchBox').value.trim().toLowerCase();
+      if (!q) {
+        renderGrid(allBackgrounds);
+      } else {
+        renderGrid(allBackgrounds.filter(b => b.character.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)));
+      }
+    }
+
+    function renderGrid(list) {
+      document.getElementById('bgCount').textContent = list.length;
+      const grid = document.getElementById('bgGrid');
+      grid.innerHTML = '';
+      if (!list.length) {
+        grid.innerHTML = '<div style="color: var(--text-muted); padding: 20px;">Không có hình nền nào.</div>';
+        return;
+      }
+
+      list.forEach(bg => {
+        const item = document.createElement('div');
+        item.className = 'bg-item';
+        item.innerHTML = `
+          <div class="bg-thumb-wrap">
+            <img class="bg-thumb" src="/api/backgrounds/${bg.id}/thumb" alt="${bg.id}" loading="lazy">
+          </div>
+          <div class="bg-info">
+            <div style="font-weight: 600; font-size: 14px; color: var(--primary);">${bg.character}</div>
+            <div><strong>ID:</strong> <code>${bg.id}</code></div>
+            <div><strong>Kích thước:</strong> ${bg.width} × ${bg.height}</div>
+            <div><strong>Đã dùng:</strong> ${bg.used_count || 0} lần</div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+              <span>Vị trí nhân vật:</span>
+              <select style="width: auto; padding: 2px 6px; font-size: 12px;" onchange="changeSide('${bg.id}', this.value)">
+                <option value="left" ${bg.subject_side === 'left' ? 'selected' : ''}>Trái (left)</option>
+                <option value="center" ${bg.subject_side === 'center' ? 'selected' : ''}>Giữa (center)</option>
+                <option value="right" ${bg.subject_side === 'right' ? 'selected' : ''}>Phải (right)</option>
+              </select>
+            </div>
+            <div class="bg-actions">
+              <span style="color: var(--text-muted); font-size: 11px;">${bg.added_at ? bg.added_at.slice(0, 10) : ''}</span>
+              <button class="btn-danger" onclick="deleteBg('${bg.id}')">Xóa</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    document.getElementById('addBgForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const charInput = document.getElementById('newCharacter').value.trim();
+      const fileInput = document.getElementById('newFile');
+      if (!charInput || !fileInput.files.length) return;
+
+      const fd = new FormData();
+      fd.append('character', charInput);
+      fd.append('file', fileInput.files[0]);
+
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      btn.textContent = 'Đang tải lên và kiểm tra...';
+
+      try {
+        const res = await fetch('/api/backgrounds/add', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Thêm hình nền thành công!');
+          document.getElementById('newCharacter').value = '';
+          fileInput.value = '';
+          loadBackgrounds();
+        } else {
+          alert('Không thể thêm: ' + (data.error || 'Lỗi không xác định'));
+        }
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Tải Lên Thư Viện';
+      }
+    });
+
+    async function changeSide(id, side) {
+      try {
+        const res = await fetch(`/api/backgrounds/${id}/side`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ side })
+        });
+        if (!res.ok) alert('Không đổi được vị trí');
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteBg(id) {
+      if (!confirm(`Bạn có chắc muốn xóa nền ${id}?`)) return;
+      try {
+        const res = await fetch(`/api/backgrounds/${id}/delete`, { method: 'POST' });
+        if (res.ok) {
+          loadBackgrounds();
+        } else {
+          alert('Không thể xóa nền');
+        }
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+  </script>
+</body>
+</html>

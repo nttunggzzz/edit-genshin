@@ -1,0 +1,87 @@
+{
+ "playerInfo": {
+  "nickname": "TestUser",
+  "level": 60,
+  "worldLevel": 8,
+  "finishAchievementNum": 1297,
+  "towerFloorIndex": 10,
+  "towerLevelIndex": 3,
+  "showAvatarInfoList": [
+   {
+    "avatarId": 10000030,
+    "level": 80,
+    "energyType": 8
+   },
+   {
+    "avatarId": 10000026,
+    "level": 90,
+    "talentLevel": 1,
+    "energyType": 7
+   },
+   {
+    "avatarId": 10000073,
+    "level": 90,
+    "energyType": 3
+   },
+   {
+    "avatarId": 10000089,
+    "level": 80,
+    "energyType": 2
+   },
+   {
+    "avatarId": 10000047,
+    "level": 90,
+    "talentLevel": 1,
+    "energyType": 7
+   },
+   {
+    "avatarId": 10000091,
+    "level": 90,
+    "energyType": 8
+   },
+   {
+    "avatarId": 10000002,
+    "level": 90,
+    "energyType": 5
+   },
+   {
+    "avatarId": 10000052,
+    "level": 90,
+    "energyType": 4
+   },
+   {
+    "avatarId": 10000058,
+    "level": 90,
+    "energyType": 4
+   },
+   {
+    "avatarId": 10000066,
+    "level": 90,
+    "energyType": 2
+   },
+   {
+    "avatarId": 10000060,
+    "level": 90,
+    "energyType": 2
+   },
+   {
+    "avatarId": 10000049,
+    "level": 90,
+    "talentLevel": 1,
+    "energyType": 1
+   }
+  ],
+  "theaterActIndex": 3,
+  "theaterModeIndex": 123,
+  "isShowAvatarTalent": true,
+  "fetterCount": 27,
+  "towerStarIndex": 18,
+  "stygianIndex": 3,
+  "stygianSeconds": 252,
+  "stygianId": 5269012,
+  "nameCardId": 210001
+ },
+ "ttl": 60,
+ "uid": 800000001,
+ "region": "ASIA"
+}
