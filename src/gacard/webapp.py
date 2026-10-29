@@ -285,7 +285,7 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             job.status = "waiting_captcha"
             job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh"
             job.captcha_link = link
-            job.captcha_deadline = time.time() + 120.0
+            job.captcha_deadline = time.time() + 300.0
             job.updated_at = time.time()
             log_terminal(job.id, f"HoYoLAB yêu cầu giải Captcha tại {link}")
 
@@ -300,13 +300,13 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             cookies = login_with_password(
                 job.username,
                 job.password,
-                headless=True,
+                headless=False,
                 captcha_mode="web",
                 captcha_url_base="",
                 captcha_port=CAPTCHA_PORT,
                 on_captcha=_on_captcha,
                 on_stage=_on_stage,
-                timeout_seconds=120.0,
+                timeout_seconds=300.0,
             )
             uids = discover_uids(cookies)
         except Exception as exc:
@@ -544,7 +544,14 @@ async def run_batch_job(batch: BatchJob, rows_to_run: list[dict[str, Any]], stat
 # ------------------------------------------------------------------ Handlers Tuyến Đường
 
 
+async def handle_health(request: web.Request) -> web.Response:
+    return web.Response(text="ok", content_type="text/plain", headers={"Cache-Control": "no-cache"})
+
+
 def setup_routes(app: web.Application) -> None:
+    # Health Check
+    app.router.add_get("/health", handle_health)
+
     # Pages HTML
     app.router.add_get("/", handle_page_single)
     app.router.add_get("/single", handle_page_single)

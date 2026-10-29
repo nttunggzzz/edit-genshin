@@ -37,6 +37,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 log = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ GENSHIN_GAME_ID = 2
 
 CAPTCHA_TEXTS = ("Trượt để hoàn thành", "Slide to complete", "Drag the slider")
 LOGIN_TIMEOUT_MS = 60_000
-CAPTCHA_TIMEOUT_SECONDS = 120.0
+CAPTCHA_TIMEOUT_SECONDS = 300.0
 POLL_SECONDS = 1.0
 
 MESSAGES = {
@@ -70,7 +71,11 @@ MESSAGES = {
         "cần xác minh thêm). Kiểm tra lại rồi thử lại."
     ),
     "captcha_timeout": (
-        "Đã quá thời gian 120 giây chờ xác minh Captcha mà chưa hoàn thành. Vui lòng thử lại."
+        "Đã quá thời gian 300 giây chờ xác minh Captcha mà chưa hoàn thành. Vui lòng thử lại."
+    ),
+    "form_not_found": (
+        "Không tìm thấy form đăng nhập sau 30 giây (HoYoLAB có thể đã đổi giao diện). "
+        "Đã lưu ảnh chụp màn hình vào web-out/debug-login-failed.png để debug."
     ),
     "no_cookie": (
         "Đăng nhập xong nhưng trình duyệt không trả đủ cookie HoYoLAB "
@@ -246,28 +251,26 @@ def _form_present(frame: Any) -> bool:
     return False
 
 
-def _click_login_trigger(page: Any) -> bool:
-    """Bấm nút mở khung đăng nhập trên trang chủ HoYoLAB.
-
-    Đây là bước bị thiếu ở bản đầu: trang chủ lúc mới mở chưa hiện khung
-    đăng nhập, phải bấm nút Đăng Nhập thì khung (iframe HoYoverse) mới hiện
-    ra để điền. Không bấm bước này thì code đi tìm ô nhập sẽ không bao giờ
-    thấy, trình duyệt mở rồi đóng nhanh hoặc chờ im lặng.
-    """
+def _click_login_trigger(page: Any, on_log: Callable[[str], None] | None = None) -> bool:
+    """Bấm nút mở khung đăng nhập trên trang chủ HoYoLAB với timeout 5000ms."""
     candidates = []
     for label in ("Đăng Nhập", "Log In", "Login", "Sign In"):
         try:
-            candidates.append(page.get_by_role("button", name=label).first)
-            candidates.append(page.get_by_text(label, exact=True).first)
+            candidates.append((label, page.get_by_role("button", name=label).first))
+            candidates.append((label, page.get_by_text(label, exact=True).first))
         except Exception:
             continue
-    for loc in candidates:
+    for label, loc in candidates:
         try:
             if loc.count() > 0 and loc.is_visible():
-                loc.click(timeout=3000)
-                page.wait_for_timeout(3000)
+                if on_log:
+                    on_log(f"Tìm thấy nút mở đăng nhập '{label}', đang bấm...")
+                loc.click(timeout=5000)
+                page.wait_for_timeout(2000)
                 return True
-        except Exception:
+        except Exception as e:
+            if on_log:
+                on_log(f"Lỗi khi bấm nút '{label}': {type(e).__name__}")
             continue
     return False
 
@@ -320,15 +323,13 @@ def login_with_password(
                 if not _signed_in(page):
                     if on_stage:
                         on_stage("logging_in", "Đang tìm và điền form đăng nhập HoYoLAB...")
-                    filled = _fill_login_form_sync(page, username, password)
-                    if on_stage:
-                        on_stage(
-                            "logging_in",
-                            f"Đã gửi thông tin đăng nhập (tìm thấy form: {'có' if filled else 'chưa'}), đang kiểm tra captcha..."
-                        )
+                    def _stage_log(msg: str) -> None:
+                        if on_stage:
+                            on_stage("logging_in", msg)
+                    filled = _fill_login_form_sync(page, username, password, on_log=_stage_log)
                     if not filled:
                         raise LoginError("login_failed")
-                    page.wait_for_timeout(3000)
+                    page.wait_for_timeout(2000)
                 deadline = time.monotonic() + timeout_seconds
                 captcha_announced = False
                 web_server = None
@@ -383,41 +384,132 @@ def login_with_password(
         raise LoginError("browser_error") from None
 
 
-def _fill_login_form_sync(page: Any, username: str, password: str) -> bool:
-    """Điền + bấm Đăng Nhập. Nếu chưa thấy form thì bấm nút mở form trước,
-    chờ rồi tìm lại một lần nữa — không điền bừa vào ô tìm kiếm trang chủ."""
-    frames = [page] + list(page.frames)
-    if not any(_form_present(f) for f in frames):
-        _click_login_trigger(page)
-        frames = [page] + list(page.frames)
-    for frame in frames:
-        try:
-            user_box = None
-            for sel in (
-                'input[placeholder*="Tên Người Dùng"]',
-                'input[placeholder*="Email"]',
-                'input[name="username"]',
-            ):
-                loc = frame.locator(sel).first
-                if loc.count() > 0 and loc.is_visible():
-                    user_box = loc
-                    break
-            if user_box is None:
-                continue
-            pass_box = frame.locator('input[type="password"]').first
-            if pass_box.count() == 0:
-                continue
-            user_box.fill(username)
-            pass_box.fill(password)
-            for label in ("Đăng Nhập", "Log In", "Login"):
-                btn = frame.get_by_role("button", name=label).first
-                if btn.count() > 0:
-                    btn.click()
-                    return True
-            btn = frame.locator('button[type="submit"]').first
-            if btn.count() > 0:
-                btn.click()
+def _fill_login_form_sync(
+    page: Any,
+    username: str,
+    password: str,
+    on_log: Callable[[str], None] | None = None
+) -> bool:
+    """Điền + bấm Đăng Nhập. Timeout 5000ms cho mọi thao tác locator, fill, click.
+    Log rõ từng selector tìm thấy hoặc không thấy.
+    Nếu sau 30 giây vẫn không tìm thấy form thì hủy job với lỗi rõ ràng và lưu ảnh chụp debug vào web-out.
+    """
+    start_time = time.monotonic()
+    deadline = start_time + 30.0
+
+    USER_SELECTORS = (
+        'input[placeholder*="Tên Người Dùng"]',
+        'input[placeholder*="Username"]',
+        'input[placeholder*="Email"]',
+        'input[name="username"]',
+        'input[name="account"]',
+    )
+    PASS_SELECTOR = 'input[type="password"]'
+    SUBMIT_SELECTORS = (
+        'button[type="submit"]',
+        'button:has-text("Đăng Nhập")',
+        'button:has-text("Log In")',
+        'button:has-text("Login")',
+        'button:has-text("Sign In")',
+    )
+
+    iteration = 0
+    while time.monotonic() < deadline:
+        iteration += 1
+        elapsed = int(time.monotonic() - start_time)
+        frames = [page] + list(getattr(page, "frames", []) or [])
+
+        found_user = None
+        found_pass = None
+        target_frame = None
+
+        for idx, frame in enumerate(frames):
+            for sel in USER_SELECTORS:
+                try:
+                    loc = frame.locator(sel).first
+                    if loc.count() > 0 and loc.is_visible():
+                        found_user = (sel, loc)
+                        target_frame = frame
+                        if on_log:
+                            on_log(f"[{elapsed}s] Đã tìm thấy selector user: '{sel}'")
+                        break
+                    else:
+                        if on_log and iteration == 1:
+                            on_log(f"[{elapsed}s] Không thấy selector user: '{sel}'")
+                except Exception:
+                    continue
+
+            if found_user is not None:
+                try:
+                    p_loc = frame.locator(PASS_SELECTOR).first
+                    if p_loc.count() > 0 and p_loc.is_visible():
+                        found_pass = p_loc
+                        if on_log:
+                            on_log(f"[{elapsed}s] Đã tìm thấy selector password: '{PASS_SELECTOR}'")
+                        break
+                    else:
+                        if on_log:
+                            on_log(f"[{elapsed}s] Không thấy selector password trong frame chứa user")
+                except Exception:
+                    pass
+
+        # Nếu đã tìm thấy cả user và pass:
+        if found_user is not None and found_pass is not None and target_frame is not None:
+            sel_name, u_loc = found_user
+            if on_log:
+                on_log(f"[{elapsed}s] Đang điền tài khoản vào selector '{sel_name}'...")
+            u_loc.fill(username, timeout=5000)
+            if on_log:
+                on_log(f"[{elapsed}s] Đang điền mật khẩu...")
+            found_pass.fill(password, timeout=5000)
+
+            # Bấm nút Đăng Nhập
+            for b_sel in SUBMIT_SELECTORS:
+                try:
+                    btn = target_frame.locator(b_sel).first
+                    if btn.count() > 0 and btn.is_visible():
+                        if on_log:
+                            on_log(f"[{elapsed}s] Đã tìm thấy nút submit '{b_sel}', đang bấm...")
+                        btn.click(timeout=5000)
+                        if on_log:
+                            on_log(f"[{elapsed}s] Đã gửi thông tin đăng nhập thành công!")
+                        return True
+                except Exception as e:
+                    if on_log:
+                        on_log(f"[{elapsed}s] Lỗi khi bấm nút submit '{b_sel}': {type(e).__name__}")
+                    continue
+
+            # Fallback nhấn Enter trên ô password
+            try:
+                if on_log:
+                    on_log(f"[{elapsed}s] Thử nhấn Enter trên ô mật khẩu...")
+                found_pass.press("Enter", timeout=5000)
+                if on_log:
+                    on_log(f"[{elapsed}s] Đã nhấn Enter gửi form!")
                 return True
+            except Exception:
+                pass
+
+        # Nếu chưa tìm thấy form, thử bấm nút Đăng Nhập trên trang chủ
+        if iteration % 2 == 1:
+            if on_log:
+                on_log(f"[{elapsed}s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...")
+            _click_login_trigger(page, on_log=on_log)
+
+        page.wait_for_timeout(1000)
+
+    # Quá 30 giây không thấy form: lưu ảnh debug và ném LoginError
+    for out_dir in (Path("web-out"), Path("data/acc-card/web-out")):
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            shot_file = out_dir / "debug-login-failed.png"
+            page.screenshot(path=str(shot_file), timeout=5000)
+            if on_log:
+                on_log(f"Đã lưu ảnh debug màn hình vào: {shot_file}")
+            break
         except Exception:
-            continue
-    return False
+            pass
+
+    if on_log:
+        on_log("Không tìm thấy form đăng nhập HoYoLAB sau 30 giây. Hủy job.")
+    raise LoginError("form_not_found")

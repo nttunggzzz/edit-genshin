@@ -226,8 +226,44 @@
       document.getElementById('bgSpecificGroup').style.display = mode === 'specific' ? 'block' : 'none';
     }
 
+    let serverOnline = true;
+
+    async function checkServerHealth() {
+      const btn = document.getElementById('submitBtn');
+      try {
+        const res = await fetch('/health', { cache: 'no-store' });
+        if (res.ok && (await res.text()).trim() === 'ok') {
+          serverOnline = true;
+          if (btn && btn.dataset.offline === 'true') {
+            btn.disabled = false;
+            btn.textContent = 'Bắt đầu Ghép Ảnh';
+            delete btn.dataset.offline;
+          }
+          return true;
+        }
+      } catch (e) {}
+      serverOnline = false;
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.offline = 'true';
+        btn.textContent = 'Server chưa chạy (kiểm tra run_web.bat)';
+      }
+      return false;
+    }
+
+    // Kiểm tra sức khỏe server khi vừa tải trang và lặp lại mỗi 3s
+    checkServerHealth();
+    setInterval(checkServerHealth, 3000);
+
     document.getElementById('singleForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      const healthy = await checkServerHealth();
+      if (!healthy) {
+        showStatus('status-error', 'Server chưa chạy', 'Không kết nối được server ở localhost:8001, kiểm tra cửa sổ run_web.bat còn chạy không, rồi bấm lại.');
+        return;
+      }
+
       const code = document.getElementById('code').value.trim();
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
@@ -266,7 +302,7 @@
         }
         startPolling(currentJobId);
       } catch (err) {
-        showStatus('status-error', 'Lỗi kết nối', err.message);
+        showStatus('status-error', 'Không kết nối được server ở localhost:8001', 'Kiểm tra cửa sổ run_web.bat còn chạy không, rồi bấm lại.');
       }
     });
 
@@ -279,7 +315,9 @@
       document.getElementById('captchaArea').style.display = 'none';
     }
 
+    let pollFailures = 0;
     function startPolling(jobId) {
+      pollFailures = 0;
       // Poll ngay lập tức lần đầu tiên (< 50ms)
       fetchJob(jobId);
       // Lặp lại định kỳ mỗi 2 giây
@@ -289,11 +327,21 @@
     async function fetchJob(jobId) {
       try {
         const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) return;
-        const job = await res.json();
-        handleJobUpdate(job);
+        if (!res.ok) {
+          pollFailures++;
+        } else {
+          pollFailures = 0;
+          const job = await res.json();
+          handleJobUpdate(job);
+          return;
+        }
       } catch (e) {
-        console.error('Poll error:', e);
+        pollFailures++;
+      }
+      if (pollFailures >= 3) {
+        clearInterval(pollTimer);
+        clearInterval(captchaTimer);
+        showStatus('status-error', 'Mất kết nối với server ở localhost:8001', 'Kiểm tra cửa sổ run_web.bat còn chạy không, rồi tải lại trang.');
       }
     }
 
