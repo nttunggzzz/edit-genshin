@@ -163,11 +163,13 @@
       <div id="statusBox" class="status-box">
         <div id="statusTitle" style="font-weight: 600; font-size: 15px;"></div>
         <div id="statusDesc" style="font-size: 13px; margin-top: 4px;"></div>
+        <div id="countdownBox" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius); font-weight: 500; font-size: 13px; color: #fbbf24;">
+          <span id="countdownText">Thời gian còn lại để kéo Captcha: 300s</span>
+        </div>
         <div id="captchaArea" style="display: none; margin-top: 12px;">
           <div style="font-weight: 600; color: #fbbf24;">HoYoLAB yêu cầu kéo Captcha xác minh:</div>
           <div class="captcha-actions">
             <a id="captchaBtn" href="#" target="_blank" class="btn btn-warning">Mở trang kéo Captcha</a>
-            <span id="countdownText" style="font-size: 13px; color: var(--text-muted);"></span>
           </div>
           <div style="margin-top: 8px;">
             <input type="text" id="captchaLinkInput" readonly style="font-size: 12px; color: var(--text-muted);">
@@ -373,6 +375,7 @@
       document.getElementById('statusTitle').textContent = title;
       document.getElementById('statusDesc').textContent = desc;
       document.getElementById('captchaArea').style.display = 'none';
+      document.getElementById('countdownBox').style.display = 'none';
     }
 
     let pollFailures = 0;
@@ -412,14 +415,25 @@
         const box = document.getElementById('statusBox');
         box.className = 'status-box status-captcha';
         box.style.display = 'block';
-        document.getElementById('statusTitle').textContent = 'Cần xác minh Captcha';
-        document.getElementById('statusDesc').textContent = job.stage_message || 'HoYoLAB yêu cầu kéo thanh trượt ghép hình. Vui lòng bấm nút dưới đây để kéo:';
-        const cArea = document.getElementById('captchaArea');
-        cArea.style.display = 'block';
-        document.getElementById('captchaBtn').href = job.captcha_link || '#';
-        document.getElementById('captchaLinkInput').value = job.captcha_link || '';
+        document.getElementById('statusTitle').textContent = 'Cần kéo Captcha xác minh';
 
-        // Đếm ngược 120s
+        const cArea = document.getElementById('captchaArea');
+        const cBox = document.getElementById('countdownBox');
+        cBox.style.display = 'block';
+
+        if (job.captcha_link) {
+          // Chế độ web (kéo trên port 8766)
+          cArea.style.display = 'block';
+          document.getElementById('statusDesc').textContent = job.stage_message || 'HoYoLAB yêu cầu kéo thanh trượt ghép hình. Vui lòng bấm nút dưới đây để kéo:';
+          document.getElementById('captchaBtn').href = job.captcha_link || '#';
+          document.getElementById('captchaLinkInput').value = job.captcha_link || '';
+        } else {
+          // Chế độ local (kéo trực tiếp trên cửa sổ trình duyệt Chromium)
+          cArea.style.display = 'none';
+          document.getElementById('statusDesc').textContent = job.stage_message || 'Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình. Vui lòng dùng chuột kéo thanh trượt trực tiếp trên cửa sổ đó.';
+        }
+
+        // Đếm ngược 300s
         if (!captchaTimer && job.captcha_deadline) {
           updateCountdown(job.captcha_deadline);
           captchaTimer = setInterval(() => updateCountdown(job.captcha_deadline), 1000);
@@ -446,7 +460,7 @@
 
     function updateCountdown(deadline) {
       const remaining = Math.max(0, Math.round(deadline - Date.now() / 1000));
-      document.getElementById('countdownText').textContent = `Thời gian còn lại: ${remaining}s`;
+      document.getElementById('countdownText').textContent = `Thời gian còn lại để kéo Captcha: ${remaining}s / 300s`;
       if (remaining <= 0) clearInterval(captchaTimer);
     }
 

@@ -344,6 +344,56 @@ class TestWebPipeline(unittest.TestCase):
                 mock_sheet.assert_called_once()
                 mock_render.assert_called_once()
 
+    def test_captcha_mode_local_no_web_server_and_brings_to_front(self):
+        """Kiểm tra chế độ local: không bật server port 8766, gọi bring_to_front() và trả link rỗng."""
+        mock_page = MagicMock()
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value.new_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
+        captcha_links_received = []
+        def fake_on_captcha(link):
+            captcha_links_received.append(link)
+
+        # Lần 1: captcha hiện, Lần 2: kéo xong -> signed=True
+        with patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True), \
+             patch("gacard.hoyolab_login._detect_login_error", return_value=None), \
+             patch("gacard.hoyolab_login._captcha_visible", side_effect=[True, False]), \
+             patch("gacard.hoyolab_login.BATTLE_CHRONICLE_URL", "http://battle-chronicle.local"):
+
+            mock_context.cookies.side_effect = [
+                [],  # check ban đầu trước loop: chưa signed
+                [],  # vòng lặp 1: đang có captcha, chưa signed
+                [    # vòng lặp 2: hết captcha, đã signed
+                    {"name": "ltuid_v2", "value": "12345", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "sample_token", "domain": ".hoyolab.com"},
+                ],
+                [    # sau khi break loop: build_cookie_headers
+                    {"name": "ltuid_v2", "value": "12345", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "sample_token", "domain": ".hoyolab.com"},
+                ]
+            ]
+
+            with patch("playwright.sync_api.sync_playwright") as mock_sync_pw:
+                mock_sync_pw.return_value.__enter__.return_value = mock_pw
+
+                with patch("gacard.login_web.CaptchaWebServer") as mock_captcha_server:
+                    login_with_password(
+                        "user", "pass",
+                        captcha_mode="local",
+                        on_captcha=fake_on_captcha,
+                        timeout_seconds=5
+                    )
+                    # Tuyệt đối không khởi tạo CaptchaWebServer ở chế độ local
+                    mock_captcha_server.assert_not_called()
+
+                # on_captcha được gọi với link rỗng (không mở port 8766)
+                self.assertEqual(captcha_links_received, [""])
+                # Đã gọi bring_to_front() để đưa cửa sổ trình duyệt lên trước cho người dùng kéo
+                mock_page.bring_to_front.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()

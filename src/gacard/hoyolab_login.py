@@ -478,7 +478,10 @@ def login_with_password(
                             if not captcha_announced:
                                 captcha_announced = True
                                 if on_stage:
-                                    on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn {remaining}s)...")
+                                    if captcha_mode == "web":
+                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn {remaining}s)...")
+                                    else:
+                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Vui lòng dùng chuột kéo trực tiếp trên cửa sổ trình duyệt (còn {remaining}s)...")
                                 if captcha_mode == "web":
                                     from gacard.login_web import CaptchaWebServer
 
@@ -487,8 +490,13 @@ def login_with_password(
                                     web_server.tick()
                                     if on_captcha is not None:
                                         on_captcha(link)
-                                elif on_captcha is not None:
-                                    on_captcha("")
+                                else:
+                                    try:
+                                        page.bring_to_front()
+                                    except Exception:
+                                        pass
+                                    if on_captcha is not None:
+                                        on_captcha("")
 
                             if now > deadline:
                                 raise LoginError("captcha_timeout")

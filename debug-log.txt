@@ -391,3 +391,51 @@
 [16:03:34] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
 [16:03:51] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
 [16:04:00] [UnitTests] Run test_webapp.py and test_web_pipeline.py: 14/14 tests passed OK.
+[16:11:26] [Job 167ac185] Khởi tạo job cho mã acc '1111'. Trả về job_id ngay lập tức cho client.
+[16:11:26] [Job 167ac185] Bắt đầu xử lý ghép ảnh acc '1111'...
+[16:11:26] [Job 167ac185] Khởi động trình duyệt Playwright...
+[16:11:28] [Job 167ac185] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[16:11:32] [Job 167ac185] Đang tìm và điền form đăng nhập HoYoLAB...
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[name="username"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[name="account"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[name="username"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[name="account"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[name="username"]'
+[16:11:32] [Job 167ac185] [0s] Không thấy selector user: 'input[name="account"]'
+[16:11:32] [Job 167ac185] [0s] Chưa thấy form đăng nhập, thử tìm và bấm nút Đăng Nhập trên trang chủ...
+[16:11:33] [Job 167ac185] [1s] Đã tìm thấy selector user: 'input[name="username"]'
+[16:11:33] [Job 167ac185] [1s] Đã tìm thấy selector password: 'input[type="password"]'
+[16:11:33] [Job 167ac185] [1s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[16:11:33] [Job 167ac185] [1s] Đang điền mật khẩu...
+[16:11:34] [Job 167ac185] [1s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[16:11:34] [Job 167ac185] [1s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[16:11:36] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
+[16:11:36] [Job 167ac185] Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn 300s)...
+[16:11:38] [Job 167ac185] HoYoLAB yêu cầu giải Captcha tại http://127.0.0.1:8766/?t=79423b52f95a3e5587779c0f4ccc5056
+[16:11:40] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
+[16:11:43] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 293s / 300s
+[16:11:48] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 288s / 300s
+[16:11:51] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 285s / 300s
+[16:11:54] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 282s / 300s
+[16:11:57] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 278s / 300s
+[16:12:02] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 274s / 300s
+[16:12:05] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 271s / 300s
+[16:12:08] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 268s / 300s
+[16:12:11] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 264s / 300s
+[16:12:15] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 261s / 300s
+[16:12:18] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 258s / 300s
+[16:12:21] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 255s / 300s
+[16:12:24] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 252s / 300s
+[16:24:55] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:25:31] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:25:41] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:25:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 15/15 tests passed OK. Verified captcha_mode=local.

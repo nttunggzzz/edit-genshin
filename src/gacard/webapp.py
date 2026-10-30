@@ -333,10 +333,11 @@ def process_single_account_pipeline(
     work_dir: Path,
     on_stage: Callable[[str, str], None] | None = None,
     on_captcha: Callable[[str], None] | None = None,
+    captcha_mode: str = "local",
 ) -> tuple[Path, str, str, str, str, Any, Any, list[str], list[str]]:
     """Lõi xử lý thống nhất cho 1 acc (dùng chung cho cả Ghép đơn và Ghép hàng loạt Excel):
-    1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong.
-    2. Nhận diện lỗi toast / Too many requests / Captcha 8766 / Cookie.
+    1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong, không dùng profile Chrome cá nhân.
+    2. Chế độ captcha: 'local' (hiện cửa sổ Chromium cho người dùng kéo trực tiếp).
     3. Ghé qua Battle Chronicle 1 lần để lấy cookie_token_v2.
     4. Cào thông tin với delay ngẫu nhiên 1-5s giữa các request.
     5. Lưu JSON sạch trước khi vẽ.
@@ -350,7 +351,7 @@ def process_single_account_pipeline(
         username,
         password,
         headless=False,
-        captcha_mode="web",
+        captcha_mode=captcha_mode,
         captcha_url_base="",
         captcha_port=CAPTCHA_PORT,
         on_captcha=on_captcha,
@@ -455,11 +456,15 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
 
         def _on_captcha(link: str) -> None:
             job.status = "waiting_captcha"
-            job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh"
             job.captcha_link = link
             job.captcha_deadline = time.time() + 300.0
             job.updated_at = time.time()
-            log_terminal(job.id, f"HoYoLAB yêu cầu giải Captcha tại {link}")
+            if link:
+                job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh"
+                log_terminal(job.id, f"HoYoLAB yêu cầu giải Captcha tại {link}")
+            else:
+                job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh. Vui lòng kéo trực tiếp trên cửa sổ trình duyệt Chromium."
+                log_terminal(job.id, "HoYoLAB yêu cầu giải Captcha. Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình để kéo trực tiếp.")
 
         def _on_stage(stage: str, msg: str) -> None:
             job.status = stage
@@ -485,6 +490,7 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
                 work_dir=work_dir,
                 on_stage=_on_stage,
                 on_captcha=_on_captcha,
+                captcha_mode="local",
             )
             job.uid = uid
             job.sheet = sheet
@@ -555,6 +561,11 @@ async def run_batch_job(batch: BatchJob, rows_to_run: list[dict[str, Any]], stat
 
             work_dir = Path(tempfile.mkdtemp(prefix=f"gacard-batch-{batch.id[:6]}-{idx}-"))
 
+            def _on_batch_captcha(link: str) -> None:
+                row_dict["status"] = "Chờ kéo Captcha"
+                batch.updated_at = time.time()
+                log_terminal(batch.id, f"Hàng {idx+1} ({code}): HoYoLAB yêu cầu kéo Captcha trên cửa sổ trình duyệt.")
+
             try:
                 dest_path, filename, dl_name, uid, bg_desc, sheet, report, wish_lines, chars_acc = await asyncio.to_thread(
                     process_single_account_pipeline,
@@ -570,7 +581,8 @@ async def run_batch_job(batch: BatchJob, rows_to_run: list[dict[str, Any]], stat
                     state=state,
                     work_dir=work_dir,
                     on_stage=None,
-                    on_captcha=None,
+                    on_captcha=_on_batch_captcha,
+                    captcha_mode="local",
                 )
                 row_dict["uid"] = uid
                 row_dict["background"] = bg_desc
