@@ -863,5 +863,31 @@ class TestWebPipeline(unittest.TestCase):
                 self.assertEqual(passed_extras.source, "Enka")
 
 
+    def test_job_summary_with_string_explorations(self):
+        """Kiểm tra job.summary không lỗi khi report.explorations là danh sách chuỗi."""
+        from gacard.webapp import run_single_job_thread
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            job = SingleJob(id="job_summary_test", code="mock_acc", username="u", password="p")
+            state.single_jobs[job.id] = job
+            mock_report = MagicMock()
+            mock_report.nickname = "MockUser"
+            mock_report.world_level = 8
+            mock_report.adventure_rank = 60
+            mock_report.characters = []
+            mock_report.characters_total = 0
+            mock_report.weapons = []
+            mock_report.weapons_total = 0
+            mock_report.explorations = ["Mondstadt 95.0%", "Liyue 35.0%"]
+            mock_pipeline_ret = (
+                Path("mock.jpg"), "mock.jpg", "mock.jpg", "888888888", "bg_mock",
+                MagicMock(), mock_report, [], []
+            )
+            with patch("gacard.webapp.process_single_account_pipeline", return_value=mock_pipeline_ret):
+                run_single_job_thread(job, state)
+            self.assertEqual(job.status, "done")
+            self.assertEqual(job.summary["explorations"], ["Mondstadt 95.0%", "Liyue 35.0%"])
+
+
 if __name__ == "__main__":
     unittest.main()

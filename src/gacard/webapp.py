@@ -556,7 +556,7 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
                 "chars_total": report.characters_total or len(report.characters),
                 "weapons_drawn": len(report.weapons),
                 "weapons_total": getattr(report, "weapons_total", None) or len(report.weapons),
-                "explorations": [f"{e.name}: {e.pct}%" for e in report.explorations],
+                "explorations": list(report.explorations) if getattr(report, "explorations", None) else [],
                 "background_desc": bg_desc,
                 "wish_info": "\n".join(wish_lines) if wish_lines else "Bỏ qua ô banner",
             }
