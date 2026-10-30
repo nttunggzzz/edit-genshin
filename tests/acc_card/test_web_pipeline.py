@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from gacard import hoyolab
 from gacard.hoyolab_login import (
     BATTLE_CHRONICLE_URL,
     LoginCookies,
@@ -811,6 +812,55 @@ class TestWebPipeline(unittest.TestCase):
             # Mật khẩu và username bị xóa sạch khỏi memory
             self.assertEqual(job.password, "")
             self.assertEqual(job.username, "")
+
+
+    def test_save_acc_json_with_enka_extras(self):
+        """Kiểm tra save_acc_json lưu đúng đối tượng EnkaExtras thành dict 3 trường sạch không chứa secret."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            fake_extras = hoyolab.EnkaExtras(world_level=7, namecard_icon="fake_icon.png", source="Enka")
+            json_file = save_acc_json(
+                out_dir=out_dir,
+                code="mock_acc_99",
+                uid="899999999",
+                index_data={"role": {"Nickname": "MockUser"}},
+                list_data=[],
+                extras=fake_extras,
+                wish_lines=[],
+                chars_acc=["amber"],
+            )
+            self.assertTrue(json_file.exists())
+            raw_text = json_file.read_text(encoding="utf-8")
+            data = json.loads(raw_text)
+            self.assertIsInstance(data.get("extras"), dict)
+            self.assertEqual(data["extras"], {"world_level": 7, "namecard_icon": "fake_icon.png", "source": "Enka"})
+            for secret in ("password", "cookie", "token", "authkey", "ltuid_v2", "ltoken_v2"):
+                self.assertNotIn(secret, raw_text.lower())
+
+    def test_reroll_account_from_json_restores_enka_extras(self):
+        """Kiểm tra reroll_account_from_json dựng lại EnkaExtras từ dict và không gọi HoYoLAB."""
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            work_dir = Path(tmp) / "work"
+            work_dir.mkdir()
+            json_path = Path(tmp) / "acc-mock_99-899999999.json"
+            json_path.write_text(json.dumps({
+                "code": "mock_99",
+                "uid": "899999999",
+                "chars_in_account": ["amber"],
+                "index_data": {"role": {"Nickname": "MockUser"}},
+                "list_data": [],
+                "extras": {"world_level": 8, "namecard_icon": "mock_icon.png", "source": "Enka"},
+                "wish_lines": [],
+            }), encoding="utf-8")
+            with patch("gacard.hoyolab.build_sheet_from_data", return_value=(MagicMock(), MagicMock())) as mock_build,                  patch("gacard.webapp.render_account_card", return_value=(Path("mock.jpg"), "mock.jpg", "mock.jpg")),                  patch("gacard.webapp.login_with_password") as mock_login:
+                reroll_account_from_json(json_path=json_path, work_dir=work_dir, state=state)
+                mock_login.assert_not_called()
+                passed_extras = mock_build.call_args[0][5]
+                self.assertIsInstance(passed_extras, hoyolab.EnkaExtras)
+                self.assertEqual(passed_extras.world_level, 8)
+                self.assertEqual(passed_extras.namecard_icon, "mock_icon.png")
+                self.assertEqual(passed_extras.source, "Enka")
 
 
 if __name__ == "__main__":

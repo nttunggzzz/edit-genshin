@@ -310,13 +310,19 @@ def save_acc_json(
     """
     clean_code = re.sub(r"[^A-Za-z0-9_\-]", "_", code)
     json_path = out_dir / f"acc-{clean_code}-{uid}.json"
+    if extras is not None and hasattr(extras, "__dataclass_fields__"):
+        extras_data = asdict(extras)
+    elif isinstance(extras, dict):
+        extras_data = extras
+    else:
+        extras_data = None
     payload = {
         "code": code,
         "uid": uid,
         "saved_at": time.time(),
         "index_data": index_data,
         "list_data": list_data,
-        "extras": extras,
+        "extras": extras_data,
         "wish_lines": wish_lines,
         "chars_in_account": chars_acc,
     }
@@ -850,7 +856,17 @@ def reroll_account_from_json(
     chars_acc = data.get("chars_in_account", [])
     index_data = data["index_data"]
     list_data = data["list_data"]
-    extras = data.get("extras")
+    extras_raw = data.get("extras")
+    if isinstance(extras_raw, dict):
+        extras = hoyolab.EnkaExtras(
+            world_level=extras_raw.get("world_level"),
+            namecard_icon=extras_raw.get("namecard_icon"),
+            source=extras_raw.get("source", "Enka"),
+        )
+    elif extras_raw is None or isinstance(extras_raw, hoyolab.EnkaExtras):
+        extras = extras_raw
+    else:
+        extras = None
     wish_lines = data.get("wish_lines", [])
 
     new_bg_id, new_bg_desc = pick_background_for_acc(
