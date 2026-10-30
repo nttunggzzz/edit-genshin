@@ -127,6 +127,7 @@ class SingleJob:
     stage_message: str = "Trình duyệt đang khởi động và kết nối HoYoLAB..."
     captcha_link: str | None = None
     captcha_deadline: float | None = None
+    browser_deadline: float | None = None
     sheet: Any = None
     report: Any = None
     uid: str | None = None
@@ -340,10 +341,11 @@ def process_single_account_pipeline(
     captcha_mode: str = "web",
     check_action_requests: Callable[[], dict[str, bool]] | None = None,
     on_captcha_proof: Callable[[bytes], None] | None = None,
+    profile_dir: Path | None = None,
 ) -> tuple[Path, str, str, str, str, Any, Any, list[str], list[str]]:
     """Lõi xử lý thống nhất cho 1 acc (dùng chung cho cả Ghép đơn và Ghép hàng loạt Excel):
     1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong, không dùng profile Chrome cá nhân.
-    2. Chế độ captcha: 'web' (kéo qua giao diện web trực tiếp, có ảnh bằng chứng chụp từ HoYoLAB).
+    2. Chế độ captcha: 'cdp' (kết nối CDP trên trình duyệt người dùng mở) hoặc 'web' / 'local'.
     3. Ghé qua Battle Chronicle 1 lần để lấy cookie_token_v2.
     4. Cào thông tin với delay ngẫu nhiên 1-5s giữa các request.
     5. Lưu JSON sạch trước khi vẽ.
@@ -365,6 +367,7 @@ def process_single_account_pipeline(
         timeout_seconds=300.0,
         check_action_requests=check_action_requests,
         on_captcha_proof=on_captcha_proof,
+        profile_dir=profile_dir,
     )
     uids = discover_uids(cookies)
     if not uids:
@@ -457,26 +460,32 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
     with state.thread_lock:
         work_dir = Path(tempfile.mkdtemp(prefix=f"gacard-web-{job.id[:8]}-"))
         job.work_dir = work_dir
-        job.status = "logging_in"
-        job.stage_message = "Trình duyệt đang khởi động và kết nối HoYoLAB..."
+        job.status = "waiting_browser"
+        job.stage_message = "Đang chờ bạn mở trình duyệt... Hãy bấm đúp file scripts/launch_cdp_browser.bat"
+        job.browser_deadline = time.time() + 120.0
         job.updated_at = time.time()
         log_terminal(job.id, f"Bắt đầu xử lý ghép ảnh acc '{job.code}'...")
+
+        clean_code = re.sub(r"[^A-Za-z0-9_\-]", "_", job.code)
+        cdp_profile_dir = Path(tempfile.gettempdir()) / f"gacard_cdp_{clean_code}"
+        try:
+            (state.out_dir / "current_acc_code.txt").write_text(clean_code, encoding="utf-8")
+        except Exception:
+            pass
 
         def _on_captcha(link: str) -> None:
             job.status = "waiting_captcha"
             job.captcha_link = link
             job.captcha_deadline = time.time() + 300.0
             job.updated_at = time.time()
-            if link:
-                job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh"
-                log_terminal(job.id, f"HoYoLAB yêu cầu giải Captcha tại {link}")
-            else:
-                job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh. Vui lòng kéo trực tiếp trên cửa sổ trình duyệt Chromium."
-                log_terminal(job.id, "HoYoLAB yêu cầu giải Captcha. Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình để kéo trực tiếp.")
+            job.stage_message = "HoYoLAB yêu cầu kéo Captcha xác minh. Vui lòng kéo trực tiếp slider trên cửa sổ trình duyệt bạn vừa mở."
+            log_terminal(job.id, "HoYoLAB yêu cầu giải Captcha. Hãy kéo trực tiếp slider trên cửa sổ trình duyệt bạn vừa mở.")
 
         def _on_stage(stage: str, msg: str) -> None:
             job.status = stage
             job.stage_message = msg
+            if stage == "waiting_browser" and not job.browser_deadline:
+                job.browser_deadline = time.time() + 120.0
             job.updated_at = time.time()
             log_terminal(job.id, msg)
 
@@ -514,9 +523,10 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
                 work_dir=work_dir,
                 on_stage=_on_stage,
                 on_captcha=_on_captcha,
-                captcha_mode="web",
+                captcha_mode="cdp",
                 check_action_requests=_check_action_requests,
                 on_captcha_proof=_on_captcha_proof,
+                profile_dir=cdp_profile_dir,
             )
             job.uid = uid
             job.sheet = sheet
@@ -560,6 +570,17 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             job.req_fallback_web = False
             job.password = ""
             job.username = ""
+            if cdp_profile_dir.exists():
+                try:
+                    shutil.rmtree(cdp_profile_dir, ignore_errors=True)
+                except Exception:
+                    pass
+            temp_profile = Path(tempfile.gettempdir()) / "gacard_cdp_temp"
+            if temp_profile.exists():
+                try:
+                    shutil.rmtree(temp_profile, ignore_errors=True)
+                except Exception:
+                    pass
 
 
 async def run_batch_job(batch: BatchJob, rows_to_run: list[dict[str, Any]], state: WebState) -> None:
@@ -752,8 +773,9 @@ async def handle_api_single(request: web.Request) -> web.Response:
         frame_color=body.get("frame_color") or None,
         height=int(body.get("height") or 1080),
         watermark=str(body.get("watermark") or "").strip(),
-        status="logging_in",
-        stage_message="Trình duyệt đang khởi động và kết nối HoYoLAB...",
+        status="waiting_browser",
+        stage_message="Đang chờ bạn mở trình duyệt... Hãy bấm đúp file scripts/launch_cdp_browser.bat",
+        browser_deadline=time.time() + 120.0,
     )
     state.single_jobs[job_id] = job
 
@@ -788,6 +810,7 @@ async def handle_api_job_status(request: web.Request) -> web.Response:
         "stage_message": job.stage_message,
         "captcha_link": job.captcha_link,
         "captcha_deadline": job.captcha_deadline,
+        "browser_deadline": job.browser_deadline,
         "captcha_proof_url": job.captcha_proof_url,
         "image_filename": job.image_filename,
         "image_url": job.image_url,

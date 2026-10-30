@@ -66,6 +66,10 @@ MESSAGES = {
         "Chưa cài Playwright nên chưa đăng nhập bằng tài khoản/mật khẩu được. "
         "Chạy: pip install -e \".[login]\" rồi: playwright install chromium"
     ),
+    "cdp_not_opened": (
+        "Đã quá 120 giây mà chưa thấy trình duyệt mở. "
+        "Vui lòng bấm đúp file scripts/launch_cdp_browser.bat rồi thử lại."
+    ),
     "login_failed": (
         "Đăng nhập HoYoLAB không thành công (sai tài khoản/mật khẩu, hoặc tài khoản "
         "cần xác minh thêm). Kiểm tra lại rồi thử lại."
@@ -384,6 +388,183 @@ def _bring_page_to_front(page: Any, on_log: Callable[[str], None] | None = None)
         return False
 
 
+def login_with_password_cdp(
+    username: str,
+    password: str,
+    *,
+    cdp_url: str = "http://localhost:9222",
+    cdp_wait_seconds: float = 120.0,
+    captcha_timeout_seconds: float = CAPTCHA_TIMEOUT_SECONDS,
+    on_stage: Callable[[str, str], None] | None = None,
+    on_captcha: Callable[[str], None] | None = None,
+    profile_dir: Path | None = None,
+) -> LoginCookies:
+    """Đăng nhập HoYoLAB qua Chrome DevTools Protocol (CDP) trên trình duyệt do người dùng mở.
+
+    1. Chờ tối đa 120s để người dùng bấm đúp file scripts/launch_cdp_browser.bat.
+    2. Poll cổng CDP http://localhost:9222/json/version mỗi 1s. Quá 120s hủy job.
+    3. Kết nối qua connect_over_cdp, bot tự động điền tài khoản, mật khẩu.
+    4. Người dùng kéo Captcha trực tiếp trên trình duyệt thật (không qua web 8766).
+    5. Điều hướng sang Battle Chronicle lấy cookie_token_v2, trả LoginCookies.
+    6. Đóng trình duyệt CDP và dọn sạch profile tạm trong finally.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise LoginError("playwright_missing") from None
+
+    import urllib.error
+    import urllib.request
+    import shutil
+
+    def _stage_log(msg: str) -> None:
+        if on_stage:
+            on_stage("logging_in", msg)
+
+    # 1. Chờ người dùng mở trình duyệt qua file .bat
+    if on_stage:
+        on_stage(
+            "waiting_browser",
+            "Đang chờ bạn mở trình duyệt... Hãy bấm đúp file scripts/launch_cdp_browser.bat "
+            "(Lưu ý: Tuyệt đối KHÔNG tự gõ tài khoản/mật khẩu vào trình duyệt, bot sẽ tự điền!)"
+        )
+
+    start_poll = time.monotonic()
+    poll_deadline = start_poll + cdp_wait_seconds
+    version_url = f"{cdp_url}/json/version"
+    cdp_ready = False
+
+    while time.monotonic() < poll_deadline:
+        try:
+            req = urllib.request.Request(version_url, headers={"User-Agent": "gacard-cdp-checker"})
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                if resp.status == 200:
+                    cdp_ready = True
+                    break
+        except Exception:
+            pass
+        remaining = max(0, int(poll_deadline - time.monotonic()))
+        if on_stage and (int(time.monotonic() - start_poll) % 3 == 0):
+            on_stage(
+                "waiting_browser",
+                f"Đang chờ bạn mở trình duyệt (còn {remaining}s)... Hãy bấm đúp file scripts/launch_cdp_browser.bat "
+                "(Lưu ý: Không tự gõ tài khoản/mật khẩu vào trình duyệt, bot sẽ tự điền!)"
+            )
+        time.sleep(1.0)
+
+    if not cdp_ready:
+        raise LoginError("cdp_not_opened")
+
+    if on_stage:
+        on_stage("logging_in", "Trình duyệt đã mở! Bot đang gắn kết nối và tự động điền form HoYoLAB...")
+
+    # 2. Gắn vào trình duyệt qua CDP
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.connect_over_cdp(cdp_url)
+            try:
+                context = browser.contexts[0] if browser.contexts else browser.new_context()
+                page = context.pages[0] if context.pages else context.new_page()
+
+                # Kiểm tra và điều hướng đến HoYoLAB nếu chưa ở trang này
+                if "hoyolab.com" not in page.url:
+                    page.goto(HOYOLAB_HOME, timeout=LOGIN_TIMEOUT_MS)
+                    page.wait_for_timeout(2000)
+
+                # Điền form đăng nhập nếu chưa có cookie
+                if not _signed_in(page):
+                    if on_stage:
+                        on_stage("logging_in", "Đang tìm và tự động điền form đăng nhập HoYoLAB...")
+                    filled = _fill_login_form_sync(page, username, password, on_log=_stage_log)
+                    if not filled:
+                        raise LoginError("login_failed")
+                    page.wait_for_timeout(2000)
+
+                deadline = time.monotonic() + captcha_timeout_seconds
+                captcha_announced = False
+                last_log_time = 0.0
+
+                while True:
+                    now = time.monotonic()
+                    remaining = max(0, int(deadline - now))
+                    signed = _signed_in(page)
+                    has_captcha = _captcha_visible(page)
+
+                    # 0. Kiểm tra toast/alert báo lỗi đăng nhập (sai pass, too many requests...) -> dừng ngay
+                    login_err = _detect_login_error(page)
+                    if login_err:
+                        is_too_many = any(k in login_err.lower() for k in ("too many", "quá nhiều", "quá giới hạn"))
+                        if is_too_many:
+                            if on_stage:
+                                on_stage("error", f"HoYoLAB đang giới hạn tạm thời: {login_err}")
+                            raise LoginError("too_many_requests", f"HoYoLAB đang giới hạn tạm thời ({login_err}). Đã dừng hàng đợi, chờ khách hàng quyết định.")
+                        if on_stage:
+                            on_stage("error", f"Đăng nhập thất bại: {login_err}")
+                        raise LoginError("login_failed", f"HoYoLAB báo: {login_err}")
+
+                    # Log định kỳ mỗi 3 giây
+                    if now - last_log_time >= 3.0:
+                        last_log_time = now
+                        status_text = (
+                            f"Kiểm tra phản hồi HoYoLAB: đã có cookie={signed}, captcha hiện={has_captcha}, "
+                            f"còn lại {remaining}s / {int(captcha_timeout_seconds)}s"
+                        )
+                        if on_stage:
+                            stage_name = "waiting_captcha" if has_captcha else "logging_in"
+                            on_stage(stage_name, status_text)
+
+                    # 1. Đã có cookie ltuid_v2 và ltoken_v2 và không còn Captcha
+                    if signed and not has_captcha:
+                        if on_stage:
+                            on_stage("fetching_data", "Đã xác nhận phiên đăng nhập! Đang kết nối Sổ Tay Hành Trình để lấy cookie_token_v2...")
+                        try:
+                            page.goto(BATTLE_CHRONICLE_URL, timeout=15000)
+                            page.wait_for_timeout(2000)
+                        except Exception:
+                            pass
+                        break
+
+                    # 2. Phát hiện Captcha -> người dùng kéo trực tiếp trên trình duyệt
+                    if has_captcha:
+                        if not captcha_announced:
+                            captcha_announced = True
+                            if on_captcha:
+                                on_captcha("")
+                            if on_stage:
+                                on_stage("waiting_captcha", f"Phát hiện Captcha! Hãy kéo trực tiếp slider trên trình duyệt bạn vừa mở (còn {remaining}s)...")
+
+                        if now > deadline:
+                            raise LoginError("captcha_timeout")
+
+                        page.wait_for_timeout(1000)
+                        continue
+
+                    # 3. Quá thời gian mà chưa có cookie
+                    if now > deadline:
+                        raise LoginError("login_timeout_no_cookie")
+
+                    page.wait_for_timeout(1000)
+
+                cookies = build_cookie_headers(context.cookies())
+                return cookies
+            finally:
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+    except LoginError:
+        raise
+    except Exception as exc:
+        log.info("Lỗi kết nối trình duyệt CDP: %s", type(exc).__name__)
+        raise LoginError("browser_error") from None
+    finally:
+        if profile_dir and profile_dir.exists():
+            try:
+                shutil.rmtree(profile_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+
 def login_with_password(
     username: str,
     password: str,
@@ -397,17 +578,21 @@ def login_with_password(
     timeout_seconds: float = CAPTCHA_TIMEOUT_SECONDS,
     check_action_requests: Callable[[], dict[str, bool]] | None = None,
     on_captcha_proof: Callable[[bytes], None] | None = None,
+    profile_dir: Path | None = None,
 ) -> LoginCookies:
-    """Đăng nhập đồng bộ (chạy bằng asyncio.to_thread từ bot).
+    """Đăng nhập đồng bộ (chạy bằng asyncio.to_thread từ bot)."""
+    if captcha_mode == "cdp":
+        return login_with_password_cdp(
+            username=username,
+            password=password,
+            cdp_url="http://localhost:9222",
+            cdp_wait_seconds=120.0,
+            captcha_timeout_seconds=timeout_seconds,
+            on_stage=on_stage,
+            on_captcha=on_captcha,
+            profile_dir=profile_dir,
+        )
 
-    Luồng: mở hoyolab.com -> nếu đã đăng nhập thì xong -> nếu chưa, điền form
-    -> nếu xuất hiện slider captcha thì DỪNG và chờ người dùng tự kéo (không
-    tự kéo), tối đa ``timeout_seconds`` -> kiểm tra cookie -> trả LoginCookies.
-
-    ``on_captcha``: callback bot dùng để nhắn link/web cho người dùng (chế độ
-    web) hoặc nhắn "hãy kéo slider trên máy chạy bot" (chế độ local). Callback
-    chỉ nhận link/văn bản, không nhận mật khẩu.
-    """
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:

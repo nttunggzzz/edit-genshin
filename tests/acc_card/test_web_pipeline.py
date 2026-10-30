@@ -18,6 +18,7 @@ from gacard.hoyolab_login import (
     _bring_page_to_front,
     _detect_login_error,
     login_with_password,
+    login_with_password_cdp,
 )
 from gacard.login_web import CaptchaWebServer
 from gacard.webapp import (
@@ -682,6 +683,134 @@ class TestWebPipeline(unittest.TestCase):
             self.assertEqual(resp.status, 200)
             self.assertEqual(resp.content_type, "image/jpeg")
             self.assertEqual(resp.body, fake_proof_jpeg)
+
+    def test_cdp_wait_timeout_when_browser_not_opened(self):
+        """Kiểm tra chế độ CDP: nếu quá thời gian chờ (120s) mà trình duyệt chưa mở thì hủy job báo lỗi rõ."""
+        import urllib.error
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("Connection refused")):
+            with self.assertRaises(LoginError) as ctx:
+                login_with_password_cdp("fake_user", "fake_pass", cdp_wait_seconds=0.05)
+            self.assertEqual(ctx.exception.kind, "cdp_not_opened")
+            self.assertIn("scripts/launch_cdp_browser.bat", ctx.exception.message_vi)
+
+    def test_cdp_connect_fill_form_and_direct_captcha(self):
+        """Kiểm tra bot gắn qua CDP, điền form tự động, chờ kéo captcha trực tiếp và lấy cookie_token_v2."""
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen = MagicMock()
+        mock_urlopen.__enter__.return_value = mock_resp
+
+        mock_page = MagicMock()
+        mock_page.url = "https://www.hoyolab.com"
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_context.pages = [mock_page]
+
+        mock_browser = MagicMock()
+        mock_browser.contexts = [mock_context]
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.connect_over_cdp.return_value = mock_browser
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_profile = Path(tmp_dir) / "test_cdp_profile"
+            temp_profile.mkdir()
+
+            with patch("urllib.request.urlopen", return_value=mock_urlopen), \
+                 patch("playwright.sync_api.sync_playwright") as mock_sync_pw, \
+                 patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True) as mock_fill, \
+                 patch("gacard.hoyolab_login._detect_login_error", return_value=None), \
+                 patch("gacard.hoyolab_login._captcha_visible", side_effect=[True, False]), \
+                 patch("gacard.hoyolab_login._signed_in", side_effect=[False, True, True]):
+
+                mock_sync_pw.return_value.__enter__.return_value = mock_pw
+                mock_context.cookies.return_value = [
+                    {"name": "ltuid_v2", "value": "123456"},
+                    {"name": "ltoken_v2", "value": "mock_token"},
+                    {"name": "cookie_token_v2", "value": "mock_cookie_token"},
+                ]
+
+                stages = []
+                cookies = login_with_password_cdp(
+                    "my_user",
+                    "my_pass",
+                    cdp_wait_seconds=1.0,
+                    captcha_timeout_seconds=5.0,
+                    on_stage=lambda s, m: stages.append(s),
+                    profile_dir=temp_profile,
+                )
+
+                # Xác nhận bot tự động điền form
+                mock_fill.assert_called_once_with(mock_page, "my_user", "my_pass", on_log=unittest.mock.ANY)
+
+                # Xác nhận đã điều hướng sang Battle Chronicle lấy cookie_token_v2
+                mock_page.goto.assert_any_call(BATTLE_CHRONICLE_URL, timeout=15000)
+
+                # Xác nhận các giai đoạn thông báo
+                self.assertIn("waiting_browser", stages)
+                self.assertIn("waiting_captcha", stages)
+                self.assertIn("fetching_data", stages)
+
+                # Xác nhận cookie trả về đủ
+                self.assertIn("ltuid_v2=123456", cookies.cookie)
+                self.assertIn("ltoken_v2=mock_token", cookies.cookie)
+                self.assertIn("cookie_token_v2=mock_cookie_token", cookies.cookie_token or "")
+
+                # Xác nhận đóng trình duyệt CDP
+                mock_browser.close.assert_called()
+
+                # Xác nhận dọn dẹp profile tạm
+                self.assertFalse(temp_profile.exists())
+
+    def test_cdp_too_many_requests_stops_immediately(self):
+        """Kiểm tra chế độ CDP: gặp Too many requests thì dừng ngay lập tức, không chờ hết timeout."""
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen = MagicMock()
+        mock_urlopen.__enter__.return_value = mock_resp
+
+        mock_page = MagicMock()
+        mock_page.url = "https://www.hoyolab.com"
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_context.pages = [mock_page]
+
+        mock_browser = MagicMock()
+        mock_browser.contexts = [mock_context]
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.connect_over_cdp.return_value = mock_browser
+
+        with patch("urllib.request.urlopen", return_value=mock_urlopen), \
+             patch("playwright.sync_api.sync_playwright") as mock_sync_pw, \
+             patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True), \
+             patch("gacard.hoyolab_login._detect_login_error", return_value="Too many requests"), \
+             patch("gacard.hoyolab_login._signed_in", return_value=False), \
+             patch("gacard.hoyolab_login._captcha_visible", return_value=False):
+
+            mock_sync_pw.return_value.__enter__.return_value = mock_pw
+
+            with self.assertRaises(LoginError) as ctx:
+                login_with_password_cdp("user", "pass", cdp_wait_seconds=1.0)
+
+            self.assertEqual(ctx.exception.kind, "too_many_requests")
+            mock_browser.close.assert_called()
+
+    def test_cdp_cleanup_profile_and_password_in_single_worker(self):
+        """Kiểm tra luồng run_single_job_thread dọn sạch mật khẩu và profile CDP trong finally."""
+        from gacard.webapp import run_single_job_thread
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            job = SingleJob(id="job_cdp_clean", code="test_code", username="u", password="secret_pass_123")
+            state.single_jobs[job.id] = job
+
+            with patch("gacard.webapp.process_single_account_pipeline", side_effect=RuntimeError("Simulated fail")):
+                run_single_job_thread(job, state)
+
+            self.assertEqual(job.status, "error")
+            # Mật khẩu và username bị xóa sạch khỏi memory
+            self.assertEqual(job.password, "")
+            self.assertEqual(job.username, "")
 
 
 if __name__ == "__main__":

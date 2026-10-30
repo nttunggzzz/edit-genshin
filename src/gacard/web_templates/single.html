@@ -440,32 +440,54 @@
     }
 
     function handleJobUpdate(job) {
-      if (job.status === 'logging_in') {
-        showStatus('status-running', 'Đang đăng nhập HoYoLAB...', job.stage_message || 'Trình duyệt đang kết nối máy chủ HoYoLAB và điền tài khoản...');
+      if (job.status === 'waiting_browser') {
+        const box = document.getElementById('statusBox');
+        box.className = 'status-box status-running';
+        box.style.display = 'block';
+        document.getElementById('statusTitle').textContent = 'Đang chờ bạn mở trình duyệt (tối đa 120s)...';
+        document.getElementById('statusDesc').innerHTML = `
+          Hãy bấm đúp file <strong>scripts/launch_cdp_browser.bat</strong> trên màn hình của bạn để mở trình duyệt.<br>
+          <div style="margin-top: 10px; padding: 10px 14px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: var(--radius); color: #fca5a5; font-size: 13px; line-height: 1.5;">
+            <strong style="color: #fff; display: block; margin-bottom: 4px;">⚠️ LƯU Ý QUAN TRỌNG:</strong>
+            Tuyệt đối <strong>KHÔNG tự gõ tài khoản, mật khẩu</strong> vào trình duyệt! Bạn chỉ cần bấm đúp file, bot sẽ tự động kết nối và điền form cho bạn. Nếu HoYoLAB hiện Captcha kéo trượt, bạn hãy kéo trực tiếp trên cửa sổ trình duyệt đó.
+          </div>
+        `;
+        const cBox = document.getElementById('countdownBox');
+        cBox.style.display = 'block';
+        if (job.browser_deadline) {
+          if (!captchaTimer) {
+            updateCountdown(job.browser_deadline, 'Thời gian còn lại để mở trình duyệt');
+            captchaTimer = setInterval(() => updateCountdown(job.browser_deadline, 'Thời gian còn lại để mở trình duyệt'), 1000);
+          }
+        }
+      } else if (job.status === 'logging_in') {
+        if (captchaTimer) { clearInterval(captchaTimer); captchaTimer = null; }
+        document.getElementById('countdownBox').style.display = 'none';
+        showStatus('status-running', 'Đang đăng nhập HoYoLAB...', job.stage_message || 'Bot đã kết nối trình duyệt và đang tự động điền form HoYoLAB...');
       } else if (job.status === 'waiting_captcha') {
         const box = document.getElementById('statusBox');
         box.className = 'status-box status-captcha';
         box.style.display = 'block';
-        document.getElementById('statusTitle').textContent = 'Cần kéo Captcha xác minh';
+        document.getElementById('statusTitle').textContent = 'Cần kéo Captcha xác minh trực tiếp';
 
         const cArea = document.getElementById('captchaArea');
         const cBox = document.getElementById('countdownBox');
         const cControls = document.getElementById('captchaControls');
         cBox.style.display = 'block';
-        cControls.style.display = 'flex';
-
-        const cBtn = document.getElementById('captchaBtn');
 
         if (job.captcha_link) {
           cArea.style.display = 'block';
+          cControls.style.display = 'flex';
+          const cBtn = document.getElementById('captchaBtn');
           cBtn.style.display = 'inline-flex';
           cBtn.href = job.captcha_link;
           document.getElementById('statusDesc').textContent = job.stage_message || 'HoYoLAB yêu cầu kéo Captcha xác minh. Vui lòng bấm nút màu vàng dưới đây để mở trang kéo luồng trực tiếp:';
           document.getElementById('captchaLinkInput').value = job.captcha_link || '';
         } else {
+          // Chế độ CDP: Người dùng kéo trực tiếp trên trình duyệt thật vừa mở
           cArea.style.display = 'none';
-          cBtn.style.display = 'none';
-          document.getElementById('statusDesc').textContent = job.stage_message || 'Đang chuẩn bị trang kéo Captcha...';
+          cControls.style.display = 'none';
+          document.getElementById('statusDesc').innerHTML = 'HoYoLAB yêu cầu xác minh Captcha. <strong>Hãy kéo trực tiếp slider trên cửa sổ trình duyệt bạn vừa mở</strong>.';
         }
 
         // Khung ảnh bằng chứng màn hình Captcha thật trên HoYoLAB
@@ -543,10 +565,14 @@
       }
     }
 
-    function updateCountdown(deadline) {
+    function updateCountdown(deadline, label) {
       const remaining = Math.max(0, Math.round(deadline - Date.now() / 1000));
-      document.getElementById('countdownText').textContent = `Thời gian còn lại để kéo Captcha: ${remaining}s / 300s`;
-      if (remaining <= 0) clearInterval(captchaTimer);
+      const text = label ? `${label}: ${remaining}s` : `Thời gian còn lại để kéo Captcha: ${remaining}s / 300s`;
+      document.getElementById('countdownText').textContent = text;
+      if (remaining <= 0 && captchaTimer) {
+        clearInterval(captchaTimer);
+        captchaTimer = null;
+      }
     }
 
     function renderResult(job) {

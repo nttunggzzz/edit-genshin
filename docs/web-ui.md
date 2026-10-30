@@ -58,7 +58,7 @@ python -m gacard.webapp --port 8001
 
 ## 📌 Các chức năng trên giao diện Web
 
-### 1. Ghép 1 tài khoản (`/single` hoặc trang chủ)
+### 1. Ghép 1 tài khoản (`/single` hoặc trang chủ) — Luồng CDP Trực Quan
 * **Tài khoản HoYoLAB:** Ô nhập text hiển thị rõ ràng để dễ dàng phát hiện lỗi gõ nhầm.
 * **Mật khẩu HoYoLAB:** Ô nhập dạng password có nút vector SVG để ẩn/hiện mật khẩu khi cần kiểm tra lại. Mật khẩu được xóa khỏi RAM ngay sau khi đăng nhập xong.
 * **Mã acc:** Ví dụ `11171`, `CN#1076` (1–16 ký tự: chữ, số, `-`, `_`, `#`).
@@ -66,9 +66,12 @@ python -m gacard.webapp --port 8001
   * *Tự động (Mặc định):* Chỉ chọn ngẫu nhiên trong danh sách các nhân vật mà tài khoản **thực sự sở hữu**. Tuyệt đối không chọn nhân vật ngoài acc.
   * *Theo tên nhân vật:* Nhập tên nhân vật (ví dụ `columbina`, `flins`, `raiden`).
   * *Chọn ID nền cụ thể:* Chọn trực tiếp từ thư viện ảnh nền.
-* **Xử lý Captcha (nếu có):**
-  * Khi HoYoLAB yêu cầu kéo puzzle, web hiện thông báo màu vàng kèm nút **"Mở trang kéo Captcha"**.
-  * Bấm vào nút để mở giao diện kéo slider tại cổng 8766, dùng chuột kéo thanh trượt puzzle. Kéo xong web sẽ tự động phát hiện và tiếp tục.
+* **Luồng chạy qua trình duyệt do người dùng mở (CDP Port 9222):**
+  1. Sau khi bấm **Bắt đầu Ghép Ảnh**, web hiển thị trạng thái chờ tối đa 120 giây kèm đồng hồ đếm ngược.
+  2. Người dùng bấm đúp file `scripts/launch_cdp_browser.bat` trên máy (tiến trình foreground hiển thị trực tiếp trước màn hình, không bị Windows chặn).
+  3. **Lưu ý quan trọng:** Tuyệt đối không tự gõ tài khoản/mật khẩu vào trình duyệt; bot sẽ tự động kết nối qua cổng 9222 và điền form cho bạn.
+  4. Nếu HoYoLAB yêu cầu kéo Captcha, bạn chỉ việc kéo trực tiếp thanh trượt trên cửa sổ trình duyệt đó. Kéo xong bot sẽ tự động nhận diện và tiếp tục.
+  5. Xong việc, bot đóng hoàn toàn trình duyệt CDP, xóa sạch profile tạm và giải phóng mật khẩu khỏi bộ nhớ.
 * **Kết quả:**
   * Xem trực tiếp ảnh thẻ kích thước chuẩn 1920×1080 (hoặc 720p).
   * Nút **Tải Ảnh Về Máy** tải file với tên `acc-<mã>-<uid>.jpg`.
