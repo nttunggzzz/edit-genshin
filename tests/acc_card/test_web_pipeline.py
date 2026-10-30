@@ -470,20 +470,17 @@ class TestWebPipeline(unittest.TestCase):
                 # on_captcha phải nhận được link dự phòng của server
                 self.assertEqual(captcha_links_received, ["http://localhost:8765/?t=mock_fallback_token"])
 
-    def test_api_endpoints_bring_to_front_and_fallback_web(self):
-        """Kiểm tra API /api/jobs/{id}/bring-to-front và /api/jobs/{id}/fallback-web-captcha."""
+    def test_api_endpoints_only_set_flags_without_touching_page(self):
+        """Kiểm tra API web /bring-to-front và /fallback-web-captcha TUYỆT ĐỐI không gọi trực tiếp page, chỉ đặt cờ."""
         with tempfile.TemporaryDirectory() as tmp:
             state = WebState(Path(tmp))
-            job = SingleJob(id="job_test_actions", code="111", username="u", password="p")
-            
-            bring_front_called = []
-            fallback_web_called = []
-            job.bring_to_front_fn = lambda: bring_front_called.append(True) or True
-            job.fallback_web_fn = lambda: fallback_web_called.append(True) or "http://localhost:8766/?t=fallback"
-            
+            job = SingleJob(id="job_test_flags", code="111", username="u", password="p", status="waiting_captcha")
             state.single_jobs[job.id] = job
 
-            # Giả lập request gọi API bring-to-front
+            self.assertFalse(job.req_bring_to_front)
+            self.assertFalse(job.req_fallback_web)
+
+            # 1. Gọi API bring-to-front
             mock_req_bring = MagicMock()
             mock_req_bring.app = {"state": state}
             mock_req_bring.match_info = {"id": job.id}
@@ -492,9 +489,10 @@ class TestWebPipeline(unittest.TestCase):
             self.assertEqual(resp_bring.status, 200)
             data_bring = json.loads(resp_bring.text)
             self.assertTrue(data_bring["ok"])
-            self.assertEqual(len(bring_front_called), 1)
+            # Xác nhận: API chỉ đặt cờ True, không gọi trực tiếp bất kỳ trang hay hàm Playwright nào
+            self.assertTrue(job.req_bring_to_front)
 
-            # Giả lập request gọi API fallback-web-captcha
+            # 2. Gọi API fallback-web-captcha
             mock_req_fallback = MagicMock()
             mock_req_fallback.app = {"state": state}
             mock_req_fallback.match_info = {"id": job.id}
@@ -503,8 +501,64 @@ class TestWebPipeline(unittest.TestCase):
             self.assertEqual(resp_fallback.status, 200)
             data_fallback = json.loads(resp_fallback.text)
             self.assertTrue(data_fallback["ok"])
-            self.assertIn("8766", data_fallback["link"])
-            self.assertEqual(len(fallback_web_called), 1)
+            # Xác nhận: API chỉ đặt cờ True, không trực tiếp mở server ở luồng web
+            self.assertTrue(job.req_fallback_web)
+
+    def test_browser_thread_processes_action_flags_safely(self):
+        """Kiểm tra luồng Playwright tự kiểm tra cờ và gọi bring_to_front và CaptchaWebServer trong chính luồng của nó."""
+        mock_page = MagicMock()
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value.new_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
+        flag_state = {"bring_to_front": True, "fallback_web": True}
+        def fake_check_actions():
+            res = dict(flag_state)
+            flag_state["bring_to_front"] = False
+            flag_state["fallback_web"] = False
+            return res
+
+        captcha_links = []
+        with patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True), \
+             patch("gacard.hoyolab_login._detect_login_error", return_value=None), \
+             patch("gacard.hoyolab_login._captcha_visible", side_effect=[True, False]), \
+             patch("gacard.hoyolab_login.BATTLE_CHRONICLE_URL", "http://battle-chronicle.local"):
+
+            mock_context.cookies.side_effect = [
+                [],
+                [],
+                [
+                    {"name": "ltuid_v2", "value": "12345", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "sample_token", "domain": ".hoyolab.com"},
+                ],
+                [
+                    {"name": "ltuid_v2", "value": "12345", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "sample_token", "domain": ".hoyolab.com"},
+                ]
+            ]
+
+            mock_server = MagicMock()
+            mock_server.start.return_value = "http://localhost:8765/?t=flag_test_token"
+
+            with patch("playwright.sync_api.sync_playwright") as mock_sync_pw:
+                mock_sync_pw.return_value.__enter__.return_value = mock_pw
+                with patch("gacard.login_web.CaptchaWebServer", return_value=mock_server) as mock_server_cls:
+                    login_with_password(
+                        "user", "pass",
+                        captcha_mode="local",
+                        on_captcha=captcha_links.append,
+                        timeout_seconds=5,
+                        check_action_requests=fake_check_actions,
+                    )
+                    # Xác minh cờ fallback_web đã kích hoạt mở server dự phòng ngay trong luồng Playwright
+                    mock_server_cls.assert_called_once_with(mock_page, port=8765)
+                    mock_server.start.assert_called_once()
+                    self.assertEqual(captcha_links, ["http://localhost:8765/?t=flag_test_token"])
+
+                # Xác minh bring_to_front đã được gọi trong luồng Playwright
+                mock_page.bring_to_front.assert_called()
 
 
 if __name__ == "__main__":

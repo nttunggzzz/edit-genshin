@@ -138,8 +138,8 @@ class SingleJob:
     download_name: str | None = None
     summary: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
-    bring_to_front_fn: Any = None
-    fallback_web_fn: Any = None
+    req_bring_to_front: bool = False
+    req_fallback_web: bool = False
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -336,7 +336,7 @@ def process_single_account_pipeline(
     on_stage: Callable[[str, str], None] | None = None,
     on_captcha: Callable[[str], None] | None = None,
     captcha_mode: str = "local",
-    on_register_actions: Callable[[Callable[[], bool], Callable[[], str | None]], None] | None = None,
+    check_action_requests: Callable[[], dict[str, bool]] | None = None,
 ) -> tuple[Path, str, str, str, str, Any, Any, list[str], list[str]]:
     """Lõi xử lý thống nhất cho 1 acc (dùng chung cho cả Ghép đơn và Ghép hàng loạt Excel):
     1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong, không dùng profile Chrome cá nhân.
@@ -360,7 +360,7 @@ def process_single_account_pipeline(
         on_captcha=on_captcha,
         on_stage=on_stage,
         timeout_seconds=300.0,
-        on_register_actions=on_register_actions,
+        check_action_requests=check_action_requests,
     )
     uids = discover_uids(cookies)
     if not uids:
@@ -476,9 +476,16 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             job.updated_at = time.time()
             log_terminal(job.id, msg)
 
-        def _on_register_actions(bring_front: Any, fallback_web: Any) -> None:
-            job.bring_to_front_fn = bring_front
-            job.fallback_web_fn = fallback_web
+        def _check_action_requests() -> dict[str, bool]:
+            actions = {
+                "bring_to_front": job.req_bring_to_front,
+                "fallback_web": job.req_fallback_web,
+            }
+            if job.req_bring_to_front:
+                job.req_bring_to_front = False
+            if job.req_fallback_web:
+                job.req_fallback_web = False
+            return actions
 
         try:
             (
@@ -499,7 +506,7 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
                 on_stage=_on_stage,
                 on_captcha=_on_captcha,
                 captcha_mode="local",
-                on_register_actions=_on_register_actions,
+                check_action_requests=_check_action_requests,
             )
             job.uid = uid
             job.sheet = sheet
@@ -539,8 +546,8 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             job.updated_at = time.time()
             log_terminal(job.id, f"Lỗi xử lý acc: {msg}")
         finally:
-            job.bring_to_front_fn = None
-            job.fallback_web_fn = None
+            job.req_bring_to_front = False
+            job.req_fallback_web = False
             job.password = ""
             job.username = ""
 
@@ -883,32 +890,32 @@ async def handle_api_job_bring_to_front(request: web.Request) -> web.Response:
     state: WebState = request.app["state"]
     job_id = request.match_info["id"]
     job = state.single_jobs.get(job_id)
-    if not job or not job.bring_to_front_fn:
+    if not job or job.status in ("done", "error", "stopped"):
         return web.json_response({
             "ok": False,
-            "message": "Không tìm thấy phiên trình duyệt hoặc job đã kết thúc."
+            "message": "Không tìm thấy job đang chạy hoặc job đã hoàn thành."
         }, status=400)
-    ok = job.bring_to_front_fn()
-    msg = "Đã đưa cửa sổ Chromium lên trước màn hình thành công." if ok else "Không thể đưa cửa sổ Chromium lên trước (có thể bị Windows chặn focus)."
-    return web.json_response({"ok": ok, "message": msg})
+    job.req_bring_to_front = True
+    return web.json_response({
+        "ok": True,
+        "message": "Đã ghi nhận yêu cầu đưa cửa sổ Chromium lên trước màn hình."
+    })
 
 
 async def handle_api_job_fallback_web(request: web.Request) -> web.Response:
     state: WebState = request.app["state"]
     job_id = request.match_info["id"]
     job = state.single_jobs.get(job_id)
-    if not job or not job.fallback_web_fn:
+    if not job or job.status in ("done", "error", "stopped"):
         return web.json_response({
             "ok": False,
-            "message": "Không tìm thấy phiên trình duyệt hoặc job đã kết thúc."
+            "message": "Không tìm thấy job đang chạy hoặc job đã hoàn thành."
         }, status=400)
-    link = job.fallback_web_fn()
-    if link:
-        job.captcha_link = link
-        job.stage_message = "Đã kích hoạt trang web kéo Captcha dự phòng tại cổng 8766."
-        job.updated_at = time.time()
-        return web.json_response({"ok": True, "link": link})
-    return web.json_response({"ok": False, "message": "Không thể kích hoạt trang web kéo dự phòng."}, status=500)
+    job.req_fallback_web = True
+    return web.json_response({
+        "ok": True,
+        "message": "Đã ghi nhận yêu cầu mở trang kéo Captcha dự phòng cổng 8766."
+    })
 
 
 async def handle_api_batch(request: web.Request) -> web.Response:

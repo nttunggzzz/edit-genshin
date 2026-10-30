@@ -5,7 +5,7 @@
 [19:42:44] [Job d6f406cd] Đang tìm và điền form đăng nhập HoYoLAB...
 [19:42:48] [Job d6f406cd] Đã gửi thông tin đăng nhập (tìm thấy form: có), đang kiểm tra captcha...
 [19:42:51] [Job d6f406cd] Phát hiện captcha trượt! Đang mở trang web kéo captcha...
-[19:42:52] [Job d6f406cd] HoYoLAB yêu cầu giải Captcha tại http://localhost:8766/?t=7247db08ba0a8983687a563bf4f95f1e
+[19:42:52] [Job d6f406cd] HoYoLAB yêu cầu giải Captcha tại http://localhost:8766/?t=[REDACTED_TOKEN]
 [19:44:52] [Job d6f406cd] Lỗi đăng nhập: Đã quá thời gian 120 giây chờ xác minh Captcha mà chưa hoàn thành. Vui lòng thử lại.
 [19:46:40] [Job be1439d3] Khởi tạo job cho mã acc '111'. Trả về job_id ngay lập tức cho client.
 [19:46:40] [Job be1439d3] Bắt đầu xử lý ghép ảnh acc '111'...
@@ -123,7 +123,7 @@
 [20:15:26] [Job 4d41adec] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
 [20:15:28] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
 [20:15:28] [Job 4d41adec] Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn 300s)...
-[20:15:29] [Job 4d41adec] HoYoLAB yêu cầu giải Captcha tại http://localhost:8766/?t=90dbd31ec06f7d2ab52f0119ade1b216
+[20:15:29] [Job 4d41adec] HoYoLAB yêu cầu giải Captcha tại http://localhost:8766/?t=[REDACTED_TOKEN]
 [20:15:31] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
 [20:15:34] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 293s / 300s
 [20:15:38] [Job 4d41adec] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 289s / 300s
@@ -420,7 +420,7 @@
 [16:11:34] [Job 167ac185] [1s] Đã gửi form, đang chờ HoYoLAB xác nhận...
 [16:11:36] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
 [16:11:36] [Job 167ac185] Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn 300s)...
-[16:11:38] [Job 167ac185] HoYoLAB yêu cầu giải Captcha tại http://127.0.0.1:8766/?t=79423b52f95a3e5587779c0f4ccc5056
+[16:11:38] [Job 167ac185] HoYoLAB yêu cầu giải Captcha tại http://127.0.0.1:8766/?t=[REDACTED_TOKEN]
 [16:11:40] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
 [16:11:43] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 293s / 300s
 [16:11:48] [Job 167ac185] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 288s / 300s
@@ -479,3 +479,76 @@
 [16:45:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 18/18 tests passed OK. Verified bring_to_front logging, periodic retry, and automatic 8766 fallback.
 [16:45:35] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
 [16:47:12] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:53:44] [Job 01939108] Khởi tạo job cho mã acc '111'. Trả về job_id ngay lập tức cho client.
+[16:53:44] [Job 01939108] Bắt đầu xử lý ghép ảnh acc '111'...
+[16:53:44] [Job 01939108] Khởi động trình duyệt Playwright...
+[16:53:45] [Job 01939108] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[16:53:50] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:53:50] [Job 01939108] Đang tìm và điền form đăng nhập HoYoLAB...
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[name="username"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[name="account"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[name="username"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[name="account"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:53:50] [Job 01939108] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:53:50] [Job 01939108] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[16:53:50] [Job 01939108] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[16:53:50] [Job 01939108] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[16:53:50] [Job 01939108] [0s] Đang điền mật khẩu...
+[16:53:51] [Job 01939108] [0s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[16:53:51] [Job 01939108] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[16:53:53] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
+[16:53:53] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:53:53] [Job 01939108] Phát hiện Captcha trượt! Cửa sổ Chromium đã hiện lên trước (còn 300s)...
+[16:53:53] [Job 01939108] HoYoLAB yêu cầu giải Captcha. Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình để kéo trực tiếp.
+[16:53:56] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
+[16:53:57] [Job 01939108] Không thể đưa cửa sổ trình duyệt Chromium lên trước (error: Cannot switch to a different thread
+	Current:  <greenlet.greenlet object at 0x000001AEBAE56E40 (otid=0x000001AEA1ACB3C0) current active started main>
+	Expected: <greenlet.greenlet object at 0x000001AEB9A026C0 (otid=0x000001AEA1ACB280) suspended active started main>).
+[16:53:59] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:00] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 293s / 300s
+[16:54:03] [Job 01939108] HoYoLAB yêu cầu giải Captcha tại http://127.0.0.1:8766/?t=[REDACTED_TOKEN]
+[16:54:03] [Job 01939108] Đã mở trang web kéo Captcha dự phòng tại cổng 8766.
+[16:54:03] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 289s / 300s
+[16:54:04] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:06] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 286s / 300s
+[16:54:10] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 283s / 300s
+[16:54:10] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:14] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 278s / 300s
+[16:54:16] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:18] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 274s / 300s
+[16:54:22] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 271s / 300s
+[16:54:22] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:25] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 268s / 300s
+[16:54:27] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:28] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 264s / 300s
+[16:54:28] [Job 01939108] Không thể đưa cửa sổ trình duyệt Chromium lên trước (error: Cannot switch to a different thread
+	Current:  <greenlet.greenlet object at 0x000001AEBAE56E40 (otid=0x000001AEA1ACB3C0) current active started main>
+	Expected: <greenlet.greenlet object at 0x000001AEB9A026C0 (otid=0x000001AEA1ACB280) suspended active started main>).
+[16:54:31] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 261s / 300s
+[16:54:32] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:34] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 258s / 300s
+[16:54:37] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 255s / 300s
+[16:54:37] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:41] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 252s / 300s
+[16:54:43] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:44] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 248s / 300s
+[16:54:47] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 245s / 300s
+[16:54:48] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:50] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 242s / 300s
+[16:54:54] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 239s / 300s
+[16:54:54] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:54:57] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 236s / 300s
+[16:54:59] [Job 01939108] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[16:55:00] [Job 01939108] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 232s / 300s
+[17:03:41] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[17:04:02] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[17:05:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 19/19 tests passed OK. Verified API only sets flags and browser thread safely processes bring_to_front and fallback_web.
+[17:04:58] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!

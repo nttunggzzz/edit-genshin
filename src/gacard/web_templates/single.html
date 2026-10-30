@@ -510,11 +510,11 @@
       try {
         const res = await fetch(`/api/jobs/${currentJobId}/fallback-web-captcha`, { method: 'POST' });
         const data = await res.json();
-        if (data.ok && data.link) {
-          window.open(data.link, '_blank');
-        } else {
-          alert('Không thể kích hoạt trang kéo dự phòng: ' + (data.message || 'Lỗi'));
-        }
+        const notice = document.getElementById('bringFrontNotice');
+        notice.style.display = 'block';
+        notice.textContent = data.message || (data.ok ? 'Đã yêu cầu mở trang kéo dự phòng cổng 8766...' : 'Không thể yêu cầu mở dự phòng.');
+        notice.style.color = data.ok ? 'var(--warning)' : 'var(--danger)';
+        setTimeout(() => { notice.style.display = 'none'; }, 4000);
       } catch (err) {
         alert('Lỗi: ' + err.message);
       } finally {

@@ -395,7 +395,7 @@ def login_with_password(
     on_captcha: Callable[[str], None] | None = None,
     on_stage: Callable[[str, str], None] | None = None,
     timeout_seconds: float = CAPTCHA_TIMEOUT_SECONDS,
-    on_register_actions: Callable[[Callable[[], bool], Callable[[], str | None]], None] | None = None,
+    check_action_requests: Callable[[], dict[str, bool]] | None = None,
 ) -> LoginCookies:
     """Đăng nhập đồng bộ (chạy bằng asyncio.to_thread từ bot).
 
@@ -432,31 +432,6 @@ def login_with_password(
                 if on_stage:
                     on_stage("logging_in", msg)
 
-            def _do_bring_to_front() -> bool:
-                return _bring_page_to_front(page, on_log=_stage_log)
-
-            def _do_fallback_web() -> str | None:
-                nonlocal web_server
-                if web_server is None:
-                    try:
-                        from gacard.login_web import CaptchaWebServer
-                        web_server = CaptchaWebServer(page, port=captcha_port)
-                        link = web_server.start(base_url=captcha_url_base)
-                        web_server.tick()
-                        if on_captcha is not None:
-                            on_captcha(link)
-                        if on_stage:
-                            on_stage("waiting_captcha", f"Đã mở trang web kéo Captcha dự phòng tại cổng {captcha_port}.")
-                        log.info("Người dùng đã kích hoạt mở CaptchaWebServer dự phòng tại cổng %d", captcha_port)
-                        return link
-                    except Exception as e:
-                        log.warning("Không thể mở CaptchaWebServer dự phòng: %s", e)
-                        return None
-                return getattr(web_server, "base_url", None) or f"http://localhost:{captcha_port}/"
-
-            if on_register_actions:
-                on_register_actions(_do_bring_to_front, _do_fallback_web)
-
             try:
                 if on_stage:
                     on_stage("logging_in", "Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...")
@@ -481,6 +456,28 @@ def login_with_password(
                         remaining = max(0, int(deadline - now))
                         signed = _signed_in(page)
                         has_captcha = _captcha_visible(page)
+
+                        # Kiểm tra cờ yêu cầu từ API web (được xử lý an toàn trong chính luồng Playwright này)
+                        if check_action_requests:
+                            actions = check_action_requests()
+                            if actions.get("bring_to_front"):
+                                log.info("Luồng Playwright nhận cờ yêu cầu đưa cửa sổ Chromium lên trước màn hình.")
+                                _bring_page_to_front(page, on_log=_stage_log)
+                            if actions.get("fallback_web"):
+                                log.info("Luồng Playwright nhận cờ yêu cầu mở trang web kéo Captcha dự phòng.")
+                                if web_server is None:
+                                    try:
+                                        from gacard.login_web import CaptchaWebServer
+                                        web_server = CaptchaWebServer(page, port=captcha_port)
+                                        link = web_server.start(base_url=captcha_url_base)
+                                        web_server.tick()
+                                        if on_captcha is not None:
+                                            on_captcha(link)
+                                        if on_stage:
+                                            on_stage("waiting_captcha", f"Đã mở trang web kéo Captcha dự phòng tại cổng {captcha_port}.")
+                                        log.info("Đã mở CaptchaWebServer dự phòng tại cổng %d từ cờ yêu cầu thành công.", captcha_port)
+                                    except Exception as e:
+                                        log.warning("Không thể mở CaptchaWebServer dự phòng từ cờ yêu cầu: %s", e)
 
                         # 0. Kiểm tra nếu HoYoLAB hiển thị toast/alert báo lỗi đăng nhập (sai pass, sai format, too many...) -> dừng ngay
                         login_err = _detect_login_error(page)
@@ -538,7 +535,7 @@ def login_with_password(
                                     if front_ok:
                                         if on_stage:
                                             on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Cửa sổ Chromium đã hiện lên trước (còn {remaining}s)...")
-                                        if on_captcha is not None:
+                                        if on_captcha is not None and web_server is None:
                                             on_captcha("")
                                     else:
                                         # Cửa sổ local không đưa lên trước được -> tự động chuyển sang trang kéo dự phòng ngay lập tức!
