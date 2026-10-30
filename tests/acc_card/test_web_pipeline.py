@@ -1,0 +1,349 @@
+"""Kiểm tra mock toàn bộ pipeline web, bắt lỗi login, pacing stats, Battle Chronicle và clean JSON."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from gacard.hoyolab_login import (
+    BATTLE_CHRONICLE_URL,
+    LoginCookies,
+    LoginError,
+    _detect_login_error,
+    login_with_password,
+)
+from gacard.webapp import (
+    BatchJob,
+    WebState,
+    process_single_account_pipeline,
+    reroll_account_from_json,
+    run_batch_job,
+    save_acc_json,
+)
+
+
+class TestWebPipeline(unittest.TestCase):
+    def test_detect_login_error_vant_and_too_many(self):
+        """Kiểm tra _detect_login_error bắt được toast Vant và thông báo Too many requests."""
+        # 1. Page có Vant toast lỗi sai mật khẩu
+        mock_el_vant = MagicMock()
+        mock_el_vant.is_visible.return_value = True
+        mock_el_vant.inner_text.return_value = "Tên người dùng hoặc mật khẩu không chính xác"
+
+        mock_loc_vant = MagicMock()
+        mock_loc_vant.count.return_value = 1
+        mock_loc_vant.nth.return_value = mock_el_vant
+
+        mock_page_vant = MagicMock()
+        mock_page_vant.frames = []
+        mock_page_vant.locator.side_effect = lambda sel: mock_loc_vant if sel == ".van-toast__text" else MagicMock(count=lambda: 0)
+
+        err_vant = _detect_login_error(mock_page_vant)
+        self.assertIsNotNone(err_vant)
+        self.assertIn("không chính xác", err_vant or "")
+
+        # 2. Page có thông báo Too many requests
+        mock_el_limit = MagicMock()
+        mock_el_limit.is_visible.return_value = True
+        mock_el_limit.inner_text.return_value = "Too many requests, please try again later"
+
+        mock_loc_limit = MagicMock()
+        mock_loc_limit.count.return_value = 1
+        mock_loc_limit.nth.return_value = mock_el_limit
+
+        mock_page_limit = MagicMock()
+        mock_page_limit.frames = []
+        mock_page_limit.locator.side_effect = lambda sel: mock_loc_limit if sel == '[role="alert"]' else MagicMock(count=lambda: 0)
+
+        err_limit = _detect_login_error(mock_page_limit)
+        self.assertIsNotNone(err_limit)
+        self.assertIn("Too many requests", err_limit or "")
+
+        # 3. Không có lỗi nào
+        mock_page_clean = MagicMock()
+        mock_page_clean.frames = []
+        mock_page_clean.locator.return_value.count.return_value = 0
+        self.assertIsNone(_detect_login_error(mock_page_clean))
+
+    def test_battle_chronicle_navigation_and_cookie_token_v2(self):
+        """Chứng minh điều hướng sang Battle Chronicle đặt cookie_token_v2."""
+        mock_page = MagicMock()
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_pw = MagicMock()
+
+        mock_browser = MagicMock()
+        mock_pw.chromium.launch.return_value = mock_browser
+        mock_browser.new_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
+        with patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True), \
+             patch("gacard.hoyolab_login._detect_login_error", return_value=None), \
+             patch("gacard.hoyolab_login._captcha_visible", return_value=False):
+
+            # Lần 1 (line 420 check signed): chưa có cookie
+            # Lần 2 (line 438 check signed): có ltuid & ltoken -> signed=True
+            # Lần 3 (line 516 build_cookie_headers): có cookie_token_v2 sau khi navigate Battle Chronicle
+            mock_context.cookies.side_effect = [
+                [],
+                [
+                    {"name": "ltuid_v2", "value": "12345678", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "v2_sample_ltoken", "domain": ".hoyolab.com"},
+                ],
+                [
+                    {"name": "ltuid_v2", "value": "12345678", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "v2_sample_ltoken", "domain": ".hoyolab.com"},
+                    {"name": "cookie_token_v2", "value": "v2_sample_cookie_token", "domain": ".hoyolab.com"},
+                    {"name": "account_id_v2", "value": "12345678", "domain": ".hoyolab.com"},
+                ]
+            ]
+
+            with patch("playwright.sync_api.sync_playwright") as mock_sync_pw:
+                mock_sync_pw.return_value.__enter__.return_value = mock_pw
+
+                cookies = login_with_password("user_test", "pass_test", timeout_seconds=5)
+                # Xác minh đã gọi goto tới BATTLE_CHRONICLE_URL
+                mock_page.goto.assert_any_call(BATTLE_CHRONICLE_URL, timeout=15000)
+                # Xác minh cookie_token_v2 đã được nạp vào login cookies
+                self.assertEqual(cookies.ltuid, "12345678")
+                self.assertIn("ltuid_v2=12345678", cookies.cookie)
+                self.assertIn("ltoken_v2=v2_sample_ltoken", cookies.cookie)
+                self.assertIsNotNone(cookies.cookie_token)
+                self.assertIn("cookie_token_v2=v2_sample_cookie_token", cookies.cookie_token or "")
+
+    def test_login_raises_too_many_requests(self):
+        """Kiểm tra khi gặp lỗi Too many requests thì dừng ngay và raise đúng mã lỗi."""
+        mock_page = MagicMock()
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value.new_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
+        with patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True), \
+             patch("gacard.hoyolab_login._detect_login_error", return_value="Too many requests, please try again later"), \
+             patch("gacard.hoyolab_login._captcha_visible", return_value=False):
+
+            mock_context.cookies.return_value = []
+            with patch("playwright.sync_api.sync_playwright") as mock_sync_pw:
+                mock_sync_pw.return_value.__enter__.return_value = mock_pw
+
+                with self.assertRaises(LoginError) as ctx:
+                    login_with_password("user_test", "pass_test", timeout_seconds=5)
+                self.assertEqual(ctx.exception.kind, "too_many_requests")
+                self.assertIn("giới hạn tạm thời", str(ctx.exception))
+
+    def test_save_acc_json_clean_data(self):
+        """Kiểm tra save_acc_json tạo snapshot sạch, KHÔNG chứa mật khẩu hay cookie/token."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            code = "11171"
+            uid = "812345678"
+            index_data = {
+                "role": {"Nickname": "Aether", "Level": 60},
+                "stats": {"active_day_number": 350, "achievement_number": 680},
+                "world_explorations": [{"name": "Mondstadt", "exploration_percentage": 1000}],
+            }
+            list_data = [
+                {"id": 10000002, "name": "Kamisato Ayaka", "rarity": 5, "level": 90, "fetter": 10, "actived_constellation_num": 2}
+            ]
+            extras = {"10000002": {"stats": {"crit_rate": 45.2, "crit_dmg": 220.5}}}
+            wish_lines = ["Banner Nhân Vật: 45 roll chưa ra 5*"]
+            chars_acc = ["kamisato ayaka"]
+
+            json_path = save_acc_json(
+                out_dir, code, uid, index_data, list_data, extras, wish_lines, chars_acc
+            )
+
+            self.assertTrue(json_path.exists())
+            self.assertEqual(json_path.name, f"acc-{code}-{uid}.json")
+
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            self.assertEqual(data["code"], "11171")
+            self.assertEqual(data["uid"], "812345678")
+            self.assertIn("index_data", data)
+            self.assertIn("list_data", data)
+            self.assertEqual(len(data["list_data"]), 1)
+            self.assertEqual(data["list_data"][0]["name"], "Kamisato Ayaka")
+
+            # Tuyệt đối không chứa thông tin nhạy cảm
+            raw_content = json_path.read_text(encoding="utf-8").lower()
+            self.assertNotIn("password", raw_content)
+            self.assertNotIn("ltoken", raw_content)
+            self.assertNotIn("ltuid", raw_content)
+            self.assertNotIn("cookie_token", raw_content)
+            self.assertNotIn("authkey", raw_content)
+
+    def test_pacing_stats_tracking(self):
+        """Kiểm tra WebState theo dõi thời gian pacing chuẩn xác."""
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            # Ban đầu
+            stats0 = state.get_pacing_stats()
+            self.assertIsNone(stats0["last_login_time"])
+            self.assertIsNone(stats0["current_login_time"])
+            self.assertEqual(stats0["accs_last_1h"], 0)
+
+            # Login acc 1
+            state.record_login_start()
+            stats1 = state.get_pacing_stats()
+            self.assertIsNone(stats1["last_login_time"])
+            self.assertIsNotNone(stats1["current_login_time"])
+            self.assertEqual(stats1["accs_last_1h"], 1)
+
+            # Login acc 2
+            t1 = stats1["current_login_time"]
+            state.record_login_start()
+            stats2 = state.get_pacing_stats()
+            self.assertEqual(stats2["last_login_time"], t1)
+            self.assertIsNotNone(stats2["current_login_time"])
+            self.assertEqual(stats2["accs_last_1h"], 2)
+
+    def test_batch_job_halts_on_too_many_requests(self):
+        """Kiểm tra BatchJob dừng ngay lập tức khi phát hiện lỗi too_many_requests."""
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            batch = BatchJob(
+                id="batch_test_halt",
+                total=3,
+                rows=[
+                    {"stt": 1, "code": "acc1", "status": "Chờ chạy"},
+                    {"stt": 2, "code": "acc2", "status": "Chờ chạy"},
+                    {"stt": 3, "code": "acc3", "status": "Chờ chạy"},
+                ]
+            )
+            state.batch_jobs[batch.id] = batch
+
+            raw_items = [
+                {"stt": 1, "code": "acc1", "username": "u1", "password": "p1"},
+                {"stt": 2, "code": "acc2", "username": "u2", "password": "p2"},
+                {"stt": 3, "code": "acc3", "username": "u3", "password": "p3"},
+            ]
+
+            # Giả lập pipeline ném lỗi too_many_requests ngay ở acc đầu tiên
+            with patch("gacard.webapp.process_single_account_pipeline") as mock_pipeline:
+                mock_pipeline.side_effect = LoginError("too_many_requests", "HoYoLAB đang giới hạn tạm thời")
+
+                asyncio.run(run_batch_job(batch, raw_items, state))
+
+                # Batch phải dừng ngay lập tức
+                self.assertEqual(batch.status, "stopped")
+                self.assertEqual(batch.error_count, 1)
+                self.assertEqual(batch.rows[0]["status"], "Lỗi")
+                self.assertIn("giới hạn", batch.rows[0]["reason"])
+                # Các dòng tiếp theo vẫn giữ nguyên trạng thái hoặc chưa chạy
+                self.assertEqual(batch.rows[1]["status"], "Chờ chạy")
+                self.assertEqual(batch.rows[2]["status"], "Chờ chạy")
+                # Pipeline chỉ được gọi đúng 1 lần, không chạy acc 2 và 3
+                mock_pipeline.assert_called_once()
+
+    def test_crawl_random_delay_1_to_5_seconds(self):
+        """Kiểm tra pipeline crawl luôn áp dụng delay ngẫu nhiên từ 1 đến 5 giây giữa các bước."""
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            work_dir = Path(tmp) / "work"
+            work_dir.mkdir()
+
+            mock_cookies = LoginCookies(
+                cookie="ltuid_v2=12345; ltoken_v2=sample_token",
+                cookie_token="cookie_token_v2=sample_cookie_token",
+                ltuid="12345",
+            )
+            mock_client = MagicMock()
+            mock_client.index.return_value = {"role": {"Nickname": "Traveler"}}
+            mock_client.character_list.return_value = []
+
+            delays_recorded = []
+            def fake_sleep(seconds):
+                delays_recorded.append(seconds)
+
+            with patch("gacard.webapp.login_with_password", return_value=mock_cookies), \
+                 patch("gacard.webapp.discover_uids", return_value=["800111222"]), \
+                 patch("gacard.hoyolab.HoyolabClient", return_value=mock_client), \
+                 patch("gacard.hoyolab.fetch_enka_extras", return_value={}), \
+                 patch("gacard.wish.fetch_wish_history", return_value=MagicMock(records=[])), \
+                 patch("gacard.hoyolab.build_sheet_from_data", return_value=(MagicMock(), MagicMock(account_characters=["columbina"]))), \
+                 patch("gacard.webapp.render_account_card", return_value=(Path("dummy.jpg"), "dummy.jpg", "dummy.jpg")), \
+                 patch("time.sleep", side_effect=fake_sleep):
+
+                process_single_account_pipeline(
+                    username="user1",
+                    password="pass1",
+                    code="111",
+                    bg_mode="auto",
+                    bg_character="",
+                    bg_id="",
+                    frame_color=None,
+                    height=1080,
+                    watermark="",
+                    state=state,
+                    work_dir=work_dir,
+                )
+
+                # Phải có ít nhất 4 lần delay (index, character_list, enka, wishes)
+                self.assertGreaterEqual(len(delays_recorded), 4)
+                for d in delays_recorded:
+                    self.assertGreaterEqual(d, 1.0, f"Delay {d} nhỏ hơn 1.0 giây")
+                    self.assertLessEqual(d, 5.0, f"Delay {d} lớn hơn 5.0 giây")
+
+    def test_reroll_account_from_json(self):
+        """Kiểm tra Đổi Nền vẽ lại trực tiếp từ file JSON đã lưu, không cào lại HoYoLAB, và chỉ chọn nền trong acc."""
+        import io
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            work_dir = Path(tmp) / "work"
+            work_dir.mkdir()
+
+            # Tạo 2 nền giả lập trong kho: 1 columbina, 1 flins
+            def make_img_bytes():
+                buf = io.BytesIO()
+                Image.new("RGB", (1920, 1080), color="blue").save(buf, format="JPEG")
+                return buf.getvalue()
+
+            bg1 = state.bg_lib.add(make_img_bytes(), "columbina", source="test1")
+            bg2 = state.bg_lib.add(make_img_bytes(), "flins", source="test2")
+
+            # Tạo file JSON snapshot acc đã cào sẵn, sở hữu columbina và flins
+            json_file = save_acc_json(
+                out_dir=state.out_dir,
+                code="11171",
+                uid="800111222",
+                index_data={"role": {"Nickname": "Aether", "Level": 60}},
+                list_data=[{"id": 10000001, "name": "Columbina"}, {"id": 10000002, "name": "Flins"}],
+                extras={},
+                wish_lines=["Banner: 20 roll"],
+                chars_acc=["columbina", "flins"],
+            )
+
+            with patch("gacard.hoyolab.build_sheet_from_data", return_value=(MagicMock(), MagicMock())) as mock_sheet, \
+                 patch("gacard.webapp.render_account_card", return_value=(Path("reroll.jpg"), "reroll.jpg", "reroll.jpg")) as mock_render, \
+                 patch("gacard.webapp.login_with_password") as mock_login:
+
+                # Reroll loại trừ bg1 -> phải chọn bg2 (flins)
+                dest_path, filename, dl_name, new_bg_id, new_bg_desc = reroll_account_from_json(
+                    json_path=json_file,
+                    work_dir=work_dir,
+                    state=state,
+                    exclude_bg_id=bg1.id,
+                )
+
+                # Tuyệt đối không đăng nhập lại
+                mock_login.assert_not_called()
+                # Nền mới phải là bg2 (flins), loại trừ bg1
+                self.assertEqual(new_bg_id, bg2.id)
+                self.assertIn("flins", new_bg_desc.lower())
+                # Đã gọi build_sheet_from_data và render_account_card
+                mock_sheet.assert_called_once()
+                mock_render.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()

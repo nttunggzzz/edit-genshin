@@ -54,6 +54,14 @@
   <div class="container">
     <div class="card">
       <h1>Ghép Hàng Loạt Từ File Excel / CSV</h1>
+
+      <!-- Thống kê canh thời gian (để người dùng tự canh khoảng cách acc) -->
+      <div id="pacingStatsBox" style="margin-bottom: 20px; padding: 12px 16px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <span>Lần đăng nhập trước: <strong id="statLastLogin" style="color: var(--text);">Chưa có</strong></span>
+        <span>Lần này: <strong id="statCurrentLogin" style="color: var(--text);">Sẵn sàng</strong></span>
+        <span>Số acc trong 1 giờ qua: <strong id="statAccs1h" style="color: var(--primary);">0</strong> acc</span>
+      </div>
+
       <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 20px; font-size: 13px;">
         <strong>Quy định cột trong file Excel/CSV (theo đúng thứ tự):</strong>
         <ol style="margin-left: 20px; margin-top: 6px; line-height: 1.6;">
@@ -89,6 +97,11 @@
           </div>
         </div>
 
+        <div id="stoppedWarning" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--error); color: #fca5a5; padding: 14px 16px; border-radius: var(--radius); margin-top: 16px; font-size: 13px;">
+          <strong>Tiến trình chạy lô đã dừng lại:</strong>
+          <span id="stoppedReasonText">Phát hiện lỗi giới hạn yêu cầu (Too many requests). Hệ thống đã tự động dừng để tránh bị khóa IP/tài khoản. Vui lòng nghỉ 15-30 phút trước khi tiếp tục.</span>
+        </div>
+
         <table class="batch-table">
           <thead>
             <tr>
@@ -109,6 +122,26 @@
   <script>
     let currentBatchId = null;
     let pollTimer = null;
+
+    function updatePacingStats(stats) {
+      if (!stats) return;
+      const formatTime = (ts) => ts ? new Date(ts * 1000).toLocaleTimeString() : 'Chưa có';
+      document.getElementById('statLastLogin').textContent = formatTime(stats.last_login_time);
+      document.getElementById('statCurrentLogin').textContent = stats.current_login_time ? formatTime(stats.current_login_time) : 'Sẵn sàng';
+      document.getElementById('statAccs1h').textContent = stats.accs_last_1h || 0;
+    }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats');
+        if (res.ok) {
+          const stats = await res.json();
+          updatePacingStats(stats);
+        }
+      } catch (e) {}
+    }
+    fetchStats();
+    setInterval(fetchStats, 10000);
 
     document.getElementById('batchForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -162,12 +195,24 @@
     }
 
     function renderBatch(b) {
+      if (b.pacing_stats) updatePacingStats(b.pacing_stats);
+
       document.getElementById('statTotal').textContent = b.total || 0;
       document.getElementById('statSuccess').textContent = b.success_count || 0;
       document.getElementById('statError').textContent = b.error_count || 0;
 
       const pct = b.total > 0 ? Math.round(((b.success_count + b.error_count) / b.total) * 100) : 0;
       document.getElementById('progressBar').style.width = pct + '%';
+
+      const warnEl = document.getElementById('stoppedWarning');
+      if (b.status === 'stopped') {
+        warnEl.style.display = 'block';
+        if (b.stop_reason) {
+          document.getElementById('stoppedReasonText').textContent = b.stop_reason;
+        }
+      } else {
+        warnEl.style.display = 'none';
+      }
 
       if (b.status === 'done' && b.success_count > 0) {
         const zipBtn = document.getElementById('downloadZipBtn');

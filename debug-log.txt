@@ -307,3 +307,87 @@
 [20:53:35] [Giai đoạn 2 Test 2 - Email hợp lệ] Đã gửi form, phát hiện Geetest v4 slider puzzle trong iframe!
 [20:53:36] [Giai đoạn 2 Test 2 - Email hợp lệ] Khởi động thành công CaptchaWebServer tại http://127.0.0.1:8765/?t=...
 [20:53:53] [Giai đoạn 2 Test 2 - Email hợp lệ] Hết thời gian chờ captcha mẫu, job kết thúc an toàn với LoginError: captcha_timeout.
+[20:58:10] [Job b996960c] Khởi tạo job cho mã acc '3333'. Trả về job_id ngay lập tức cho client.
+[20:58:10] [Job b996960c] Bắt đầu xử lý ghép ảnh acc '3333'...
+[20:58:10] [Job b996960c] Khởi động trình duyệt Playwright...
+[20:58:11] [Job b996960c] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[20:58:14] [Job b996960c] Đang tìm và điền form đăng nhập HoYoLAB...
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[name="username"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[name="account"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[name="username"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[name="account"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[20:58:14] [Job b996960c] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[20:58:14] [Job b996960c] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[20:58:14] [Job b996960c] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[20:58:14] [Job b996960c] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[20:58:14] [Job b996960c] [0s] Đang điền mật khẩu...
+[20:58:15] [Job b996960c] [0s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[20:58:15] [Job b996960c] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[20:58:17] [Job b996960c] Đăng nhập thất bại: Too many requests. Please refresh the page and try again later.
+[20:58:17] [Job b996960c] Lỗi đăng nhập: HoYoLAB báo: Too many requests. Please refresh the page and try again later.
+[21:17:37] [Job 2b0025a7] Khởi tạo job cho mã acc '3333'. Trả về job_id ngay lập tức cho client.
+[21:17:37] [Job 2b0025a7] Bắt đầu xử lý ghép ảnh acc '3333'...
+[21:17:37] [Job 2b0025a7] Khởi động trình duyệt Playwright...
+[21:17:38] [Job 2b0025a7] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[21:17:41] [Job 2b0025a7] Đang tìm và điền form đăng nhập HoYoLAB...
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[name="username"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[name="account"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[name="username"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[name="account"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[21:17:41] [Job 2b0025a7] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[21:17:41] [Job 2b0025a7] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[21:17:41] [Job 2b0025a7] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[21:17:41] [Job 2b0025a7] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[21:17:41] [Job 2b0025a7] [0s] Đang điền mật khẩu...
+[21:17:42] [Job 2b0025a7] [0s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[21:17:42] [Job 2b0025a7] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[21:17:44] [Job 2b0025a7] Đăng nhập thất bại: Too many requests. Please refresh the page and try again later.
+[21:17:45] [Job 2b0025a7] Lỗi đăng nhập: HoYoLAB báo: Too many requests. Please refresh the page and try again later.
+[22:04:13] [Job 697a90d0] Khởi tạo job cho mã acc '3333'. Trả về job_id ngay lập tức cho client.
+[22:04:13] [Job 697a90d0] Bắt đầu xử lý ghép ảnh acc '3333'...
+[22:04:13] [Job 697a90d0] Khởi động trình duyệt Playwright...
+[22:04:14] [Job 697a90d0] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[22:04:18] [Job 697a90d0] Đang tìm và điền form đăng nhập HoYoLAB...
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[name="username"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[name="account"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[name="username"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[name="account"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[22:04:18] [Job 697a90d0] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[22:04:18] [Job 697a90d0] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[22:04:18] [Job 697a90d0] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[22:04:18] [Job 697a90d0] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[22:04:18] [Job 697a90d0] [0s] Đang điền mật khẩu...
+[22:04:19] [Job 697a90d0] [0s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[22:04:19] [Job 697a90d0] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[22:04:21] [Job 697a90d0] Đăng nhập thất bại: Too many requests. Please refresh the page and try again later.
+[22:04:22] [Job 697a90d0] Lỗi đăng nhập: HoYoLAB báo: Too many requests. Please refresh the page and try again later.
+[15:55:30] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[15:55:45] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[15:55:58] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:03:34] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:03:51] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:04:00] [UnitTests] Run test_webapp.py and test_web_pipeline.py: 14/14 tests passed OK.

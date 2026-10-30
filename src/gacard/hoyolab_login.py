@@ -70,6 +70,10 @@ MESSAGES = {
         "Đăng nhập HoYoLAB không thành công (sai tài khoản/mật khẩu, hoặc tài khoản "
         "cần xác minh thêm). Kiểm tra lại rồi thử lại."
     ),
+    "too_many_requests": (
+        "HoYoLAB đang giới hạn tạm thời (Too many requests). "
+        "Đã dừng hàng đợi, chờ khách hàng quyết định."
+    ),
     "captcha_timeout": (
         "Đã quá thời gian 300 giây chờ xác minh Captcha mà chưa hoàn thành. Vui lòng thử lại."
     ),
@@ -397,7 +401,12 @@ def login_with_password(
             on_stage("logging_in", "Khởi động trình duyệt Playwright...")
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=headless)
-            context = browser.new_context(viewport={"width": 1280, "height": 800})
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                locale="vi-VN",
+                timezone_id="Asia/Ho_Chi_Minh",
+            )
             page = context.new_page()
             try:
                 if on_stage:
@@ -429,9 +438,14 @@ def login_with_password(
                         signed = _signed_in(page)
                         has_captcha = _captcha_visible(page)
 
-                        # 0. Kiểm tra nếu HoYoLAB hiển thị toast/alert báo lỗi đăng nhập (sai pass, sai format...) -> dừng ngay
+                        # 0. Kiểm tra nếu HoYoLAB hiển thị toast/alert báo lỗi đăng nhập (sai pass, sai format, too many...) -> dừng ngay
                         login_err = _detect_login_error(page)
                         if login_err:
+                            is_too_many = any(k in login_err.lower() for k in ("too many", "quá nhiều", "quá giới hạn"))
+                            if is_too_many:
+                                if on_stage:
+                                    on_stage("error", f"HoYoLAB đang giới hạn tạm thời: {login_err}")
+                                raise LoginError("too_many_requests", f"HoYoLAB đang giới hạn tạm thời ({login_err}). Đã dừng hàng đợi, chờ khách hàng quyết định.")
                             if on_stage:
                                 on_stage("error", f"Đăng nhập thất bại: {login_err}")
                             raise LoginError("login_failed", f"HoYoLAB báo: {login_err}")
@@ -450,7 +464,13 @@ def login_with_password(
                         # 1. Đã có cookie ltuid_v2 và ltoken_v2 thật sự và không còn captcha
                         if signed and not has_captcha:
                             if on_stage:
-                                on_stage("fetching_data", "Đã xác nhận cookie phiên (ltuid_v2, ltoken_v2)! Bắt đầu cào dữ liệu...")
+                                on_stage("fetching_data", "Đã xác nhận phiên đăng nhập! Đang kết nối Sổ Tay Hành Trình để lấy cookie_token_v2...")
+                            try:
+                                from gacard.hoyolab import BATTLE_CHRONICLE_URL
+                                page.goto(BATTLE_CHRONICLE_URL, timeout=15000)
+                                page.wait_for_timeout(2000)
+                            except Exception:
+                                pass
                             break
 
                         # 2. Phát hiện captcha

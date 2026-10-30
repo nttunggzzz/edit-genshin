@@ -97,7 +97,13 @@ def log_terminal(job_id: str, message: str) -> None:
     now_str = datetime.now().strftime("%H:%M:%S")
     clean_id = job_id[:8] if job_id else "webapp"
     line = f"[{now_str}] [Job {clean_id}] {message}"
-    print(line, flush=True)
+    try:
+        print(line, flush=True)
+    except Exception:
+        try:
+            print(line.encode("ascii", errors="replace").decode("ascii"), flush=True)
+        except Exception:
+            pass
     try:
         with open("debug-log.txt", "a", encoding="utf-8") as f:
             f.write(line + "\n")
@@ -162,6 +168,24 @@ class WebState:
         self.worker_lock = asyncio.Lock()  # Đảm bảo tuần tự cho async
         self.thread_lock = threading.Lock()  # Đảm bảo tuần tự cho luồng Playwright
         self.thumb_cache: dict[str, bytes] = {}
+        self.last_login_time: float | None = None
+        self.current_login_time: float | None = None
+        self.login_history: list[float] = []
+
+    def record_login_start(self) -> None:
+        now = time.time()
+        self.last_login_time = self.current_login_time
+        self.current_login_time = now
+        self.login_history.append(now)
+
+    def get_pacing_stats(self) -> dict[str, Any]:
+        now = time.time()
+        recent_1h = sum(1 for t in self.login_history if now - t <= 3600)
+        return {
+            "last_login_time": self.last_login_time,
+            "current_login_time": self.current_login_time,
+            "accs_last_1h": recent_1h,
+        }
 
     def get_thumb_bytes(self, bg_id: str) -> bytes | None:
         if bg_id in self.thumb_cache:
@@ -266,6 +290,154 @@ def render_account_card(
     return dest_path, filename, download_name
 
 
+def save_acc_json(
+    out_dir: Path,
+    code: str,
+    uid: str,
+    index_data: dict,
+    list_data: dict,
+    extras: Any,
+    wish_lines: list[str],
+    chars_acc: list[str],
+) -> Path:
+    """Lưu snapshot dữ liệu cào sạch theo mã acc trước khi vẽ.
+    Tuyệt đối không chứa mật khẩu, cookie, authkey.
+    """
+    clean_code = re.sub(r"[^A-Za-z0-9_\-]", "_", code)
+    json_path = out_dir / f"acc-{clean_code}-{uid}.json"
+    payload = {
+        "code": code,
+        "uid": uid,
+        "saved_at": time.time(),
+        "index_data": index_data,
+        "list_data": list_data,
+        "extras": extras,
+        "wish_lines": wish_lines,
+        "chars_in_account": chars_acc,
+    }
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return json_path
+
+
+def process_single_account_pipeline(
+    username: str,
+    password: str,
+    code: str,
+    bg_mode: str,
+    bg_character: str,
+    bg_id: str,
+    frame_color: str | None,
+    height: int,
+    watermark: str,
+    state: WebState,
+    work_dir: Path,
+    on_stage: Callable[[str, str], None] | None = None,
+    on_captcha: Callable[[str], None] | None = None,
+) -> tuple[Path, str, str, str, str, Any, Any, list[str], list[str]]:
+    """Lõi xử lý thống nhất cho 1 acc (dùng chung cho cả Ghép đơn và Ghép hàng loạt Excel):
+    1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong.
+    2. Nhận diện lỗi toast / Too many requests / Captcha 8766 / Cookie.
+    3. Ghé qua Battle Chronicle 1 lần để lấy cookie_token_v2.
+    4. Cào thông tin với delay ngẫu nhiên 1-5s giữa các request.
+    5. Lưu JSON sạch trước khi vẽ.
+    6. Chọn nền theo đúng pool nhân vật có trong acc.
+    7. Render ảnh JPEG 1920x1080 (hoặc 720).
+    """
+    state.record_login_start()
+
+    # 1. Đăng nhập
+    cookies = login_with_password(
+        username,
+        password,
+        headless=False,
+        captcha_mode="web",
+        captcha_url_base="",
+        captcha_port=CAPTCHA_PORT,
+        on_captcha=on_captcha,
+        on_stage=on_stage,
+        timeout_seconds=300.0,
+    )
+    uids = discover_uids(cookies)
+    if not uids:
+        raise LoginError(
+            "no_genshin_role",
+            "Tài khoản HoYoLAB này chưa liên kết nhân vật Genshin nào, hoặc Sổ Tay Hành Trình chưa bật công khai."
+        )
+    uid = uids[0]
+
+    # 2. Cào dữ liệu với delay ngẫu nhiên 1-5s giữa mỗi bước
+    if on_stage:
+        on_stage("fetching_data", f"Đăng nhập thành công (UID {uid})! Bắt đầu cào dữ liệu...")
+
+    client = hoyolab.HoyolabClient(cookies.cookie, on_verification=None)
+    time.sleep(random.uniform(1.0, 5.0))
+    index_data = client.index(uid)
+
+    time.sleep(random.uniform(1.0, 5.0))
+    list_data = client.character_list(uid)
+
+    root = hoyolab.data_dir()
+    icons = hoyolab.UrlIconCache(root / "icons" / "hoyolab")
+    enka_icons = IconCache(root / "icons")
+    time.sleep(random.uniform(1.0, 5.0))
+    extras = hoyolab.fetch_enka_extras(uid)
+
+    wish_counter, wish_lines = None, []
+    if cookies.cookie_token:
+        time.sleep(random.uniform(1.0, 5.0))
+        got = wish_mod.fetch_wish_history(uid, cookie_token=cookies.cookie_token)
+        if got.records is not None:
+            wish_counter = wish_mod.banner_counter(got.records)
+            wish_lines = [
+                f"Lịch sử roll ({got.source}, {len(got.records)} lượt):",
+                *("  " + t for t in wish_mod.summary_vi(got.records).splitlines())
+            ]
+            if wish_counter is None:
+                wish_lines.append("Bỏ qua ô banner: chưa có lượt roll banner nhân vật nào.")
+        else:
+            wish_lines = [f"Bỏ qua ô banner: {got.reason}"]
+    else:
+        wish_lines = [
+            "Bỏ qua ô banner: trình duyệt đăng nhập không trả cookie_token_v2 "
+            "(lịch sử roll cần cookie này; các phần khác vẫn vẽ đủ)."
+        ]
+
+    options = RenderOptions(code=code, uid=uid)
+    sheet, report = hoyolab.build_sheet_from_data(
+        index_data, list_data, work_dir, icons, enka_icons, extras, options,
+        wish_counter, wish_lines
+    )
+
+    # 3. Tập hợp nhân vật trong acc
+    chars_acc = list(getattr(report, "account_characters", None) or [])
+    for c in characters_in_account(None, sheet):
+        if c not in chars_acc:
+            chars_acc.append(c)
+
+    # 4. Lưu JSON sạch trước khi vẽ
+    save_acc_json(
+        state.out_dir, code, uid, index_data, list_data, extras, wish_lines, chars_acc
+    )
+
+    # 5. Chọn nền trong pool của acc
+    if on_stage:
+        on_stage("rendering", "Đã cào dữ liệu xong! Đang chọn hình nền và render ảnh thẻ 1920×1080...")
+
+    bg_id_picked, bg_desc = pick_background_for_acc(
+        state.bg_lib, state.characters, chars_acc,
+        bg_mode, bg_character, bg_id
+    )
+
+    # 6. Render
+    dest_path, filename, dl_name = render_account_card(
+        sheet, work_dir, code, uid, bg_id_picked,
+        frame_color, height, watermark,
+        state.bg_lib, state.out_dir
+    )
+
+    return dest_path, filename, dl_name, uid, bg_desc, sheet, report, wish_lines, chars_acc
+
+
 # ------------------------------------------------------------------ Workers Xử Lý Nền (Đa luồng)
 
 
@@ -295,122 +467,30 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             job.updated_at = time.time()
             log_terminal(job.id, msg)
 
-        # 1. Đăng nhập
         try:
-            cookies = login_with_password(
-                job.username,
-                job.password,
-                headless=False,
-                captcha_mode="web",
-                captcha_url_base="",
-                captcha_port=CAPTCHA_PORT,
-                on_captcha=_on_captcha,
+            (
+                dest_path, filename, dl_name, uid, bg_desc,
+                sheet, report, wish_lines, chars_acc
+            ) = process_single_account_pipeline(
+                username=job.username,
+                password=job.password,
+                code=job.code,
+                bg_mode=job.bg_mode,
+                bg_character=job.bg_character,
+                bg_id=job.bg_id,
+                frame_color=job.frame_color,
+                height=job.height,
+                watermark=job.watermark,
+                state=state,
+                work_dir=work_dir,
                 on_stage=_on_stage,
-                timeout_seconds=300.0,
+                on_captcha=_on_captcha,
             )
-            uids = discover_uids(cookies)
-        except Exception as exc:
-            job.status = "error"
-            msg = getattr(exc, "message_vi", None) or str(exc)
-            job.error = msg
-            job.stage_message = f"Đăng nhập thất bại: {msg}"
-            job.updated_at = time.time()
-            log_terminal(job.id, f"Lỗi đăng nhập: {msg}")
-            return
-        finally:
-            # Xóa mật khẩu khỏi bộ nhớ ngay lập tức
-            job.password = ""
-            job.username = ""
-
-        if not uids:
-            job.status = "error"
-            msg = "Tài khoản HoYoLAB này chưa liên kết nhân vật Genshin nào, hoặc Sổ Tay Hành Trình chưa bật công khai."
-            job.error = msg
-            job.stage_message = msg
-            job.updated_at = time.time()
-            log_terminal(job.id, msg)
-            return
-
-        uid = uids[0]
-        job.uid = uid
-
-        # 2. Cào dữ liệu
-        job.status = "fetching_data"
-        job.stage_message = f"Đăng nhập thành công (UID {uid})! Đang cào dữ liệu nhân vật, vũ khí, thám hiểm, lịch sử roll..."
-        job.updated_at = time.time()
-        log_terminal(job.id, f"Tìm thấy UID {uid}. Đang cào dữ liệu Battle Chronicle & Lịch sử roll...")
-
-        try:
-            client = hoyolab.HoyolabClient(cookies.cookie, on_verification=None)
-            index_data = client.index(uid)
-            list_data = client.character_list(uid)
-            root = hoyolab.data_dir()
-            icons = hoyolab.UrlIconCache(root / "icons" / "hoyolab")
-            enka_icons = IconCache(root / "icons")
-            extras = hoyolab.fetch_enka_extras(uid)
-
-            wish_counter, wish_lines = None, []
-            if cookies.cookie_token:
-                got = wish_mod.fetch_wish_history(uid, cookie_token=cookies.cookie_token)
-                if got.records is not None:
-                    wish_counter = wish_mod.banner_counter(got.records)
-                    wish_lines = [
-                        f"Lịch sử roll ({got.source}, {len(got.records)} lượt):",
-                        *("  " + t for t in wish_mod.summary_vi(got.records).splitlines())
-                    ]
-                    if wish_counter is None:
-                        wish_lines.append("Bỏ qua ô banner: chưa có lượt roll banner nhân vật nào.")
-                else:
-                    wish_lines = [f"Bỏ qua ô banner: {got.reason}"]
-            else:
-                wish_lines = [
-                    "Bỏ qua ô banner: trình duyệt đăng nhập không trả cookie_token_v2 "
-                    "(lịch sử roll cần cookie này; các phần khác vẫn vẽ đủ)."
-                ]
-
-            options = RenderOptions(code=job.code, uid=uid)
-            sheet, report = hoyolab.build_sheet_from_data(
-                index_data, list_data, work_dir, icons, enka_icons, extras, options,
-                wish_counter, wish_lines
-            )
-        except Exception as exc:
-            job.status = "error"
-            msg = f"Lỗi cào dữ liệu HoYoLAB: {exc}"
-            job.error = msg
-            job.stage_message = msg
-            job.updated_at = time.time()
-            log_terminal(job.id, msg)
-            return
-
-        job.sheet = sheet
-        job.report = report
-
-        # 3. Tập hợp nhân vật trong acc
-        chars_acc = list(getattr(report, "account_characters", None) or [])
-        for c in characters_in_account(None, sheet):
-            if c not in chars_acc:
-                chars_acc.append(c)
-        job.chars_in_account = chars_acc
-
-        # 4. Chọn nền
-        job.status = "rendering"
-        job.stage_message = "Đã cào dữ liệu xong! Đang chọn hình nền và render ảnh thẻ 1920×1080..."
-        job.updated_at = time.time()
-        log_terminal(job.id, "Bắt đầu chọn hình nền và render ảnh thẻ...")
-
-        bg_id, bg_desc = pick_background_for_acc(
-            state.bg_lib, state.characters, chars_acc,
-            job.bg_mode, job.bg_character, job.bg_id
-        )
-        job.current_bg_id = bg_id
-
-        # 5. Render ảnh thẻ JPEG 1920×1080
-        try:
-            img_path, filename, dl_name = render_account_card(
-                sheet, work_dir, job.code, uid, bg_id,
-                job.frame_color, job.height, job.watermark,
-                state.bg_lib, state.out_dir
-            )
+            job.uid = uid
+            job.sheet = sheet
+            job.report = report
+            job.chars_in_account = chars_acc
+            job.current_bg_id = bg_desc
             job.image_filename = filename
             job.image_url = f"/images/{filename}"
             job.download_name = dl_name
@@ -438,32 +518,20 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             log_terminal(job.id, f"Hoàn tất ghép ảnh: {filename}")
         except Exception as exc:
             job.status = "error"
-            msg = f"Lỗi render ảnh: {exc}"
+            msg = getattr(exc, "message_vi", None) or str(exc)
             job.error = msg
-            job.stage_message = msg
+            job.stage_message = f"Lỗi: {msg}"
             job.updated_at = time.time()
-            log_terminal(job.id, msg)
-        except Exception as exc:
-            job.status = "error"
-            job.error = f"Lỗi khi render ảnh: {exc}"
-            job.updated_at = time.time()
+            log_terminal(job.id, f"Lỗi xử lý acc: {msg}")
+        finally:
+            job.password = ""
+            job.username = ""
 
 
 async def run_batch_job(batch: BatchJob, rows_to_run: list[dict[str, Any]], state: WebState) -> None:
     async with state.worker_lock:
         batch.status = "running"
         batch.updated_at = time.time()
-
-        cfg = Config(
-            token="dummy",
-            allowed_chat_ids=frozenset(),
-            data_dir=state.data_dir,
-            login_captcha_mode="web",
-            login_port=CAPTCHA_PORT,
-            login_headless=True,
-            login_timeout=300.0,
-        )
-        card = RealLoginCard(cfg)
 
         for idx, item in enumerate(rows_to_run):
             batch.current_index = idx + 1
@@ -483,61 +551,55 @@ async def run_batch_job(batch: BatchJob, rows_to_run: list[dict[str, Any]], stat
             password = item["password"]
             bg_input = item.get("background")
             frame_color = item.get("frame_color")
+            bg_mode = "character" if bg_input else "auto"
 
             work_dir = Path(tempfile.mkdtemp(prefix=f"gacard-batch-{batch.id[:6]}-{idx}-"))
 
             try:
-                # Đăng nhập tuần tự
-                sheet, report, uid = await asyncio.to_thread(
-                    card.build, username, password, work_dir, code, None
+                dest_path, filename, dl_name, uid, bg_desc, sheet, report, wish_lines, chars_acc = await asyncio.to_thread(
+                    process_single_account_pipeline,
+                    username=username,
+                    password=password,
+                    code=code,
+                    bg_mode=bg_mode,
+                    bg_character=bg_input or "",
+                    bg_id="",
+                    frame_color=frame_color,
+                    height=1080,
+                    watermark="",
+                    state=state,
+                    work_dir=work_dir,
+                    on_stage=None,
+                    on_captcha=None,
                 )
-            except Exception as exc:
-                row_dict["status"] = "Lỗi"
-                row_dict["reason"] = getattr(exc, "message_vi", None) or str(exc)
-                batch.error_count += 1
-                batch.updated_at = time.time()
-                continue
-            finally:
-                # Xóa mật khẩu của hàng này ngay lập tức
-                item["password"] = ""
-
-            row_dict["uid"] = uid
-
-            # Tập hợp nhân vật trong acc
-            chars_acc = list(getattr(report, "account_characters", None) or [])
-            for c in characters_in_account(None, sheet):
-                if c not in chars_acc:
-                    chars_acc.append(c)
-
-            # Chọn nền
-            bg_mode = "character" if bg_input else "auto"
-            bg_id, bg_desc = pick_background_for_acc(
-                state.bg_lib, state.characters, chars_acc,
-                bg_mode, bg_character=bg_input or ""
-            )
-            row_dict["background"] = bg_desc
-
-            # Render
-            try:
-                dest_path, filename, dl_name = await asyncio.to_thread(
-                    render_account_card,
-                    sheet, work_dir, code, uid, bg_id,
-                    frame_color, 1080, None,
-                    state.bg_lib, state.out_dir
-                )
+                row_dict["uid"] = uid
+                row_dict["background"] = bg_desc
                 row_dict["status"] = "Xong"
                 row_dict["image_url"] = f"/images/{filename}"
                 row_dict["download_filename"] = filename
                 batch.successful_images.append((dl_name, dest_path))
                 batch.success_count += 1
+            except LoginError as exc:
+                row_dict["status"] = "Lỗi"
+                row_dict["reason"] = exc.message_vi
+                batch.error_count += 1
+                if exc.kind == "too_many_requests":
+                    batch.status = "stopped"
+                    batch.updated_at = time.time()
+                    log_terminal(batch.id, f"HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng {idx+1}!")
+                    break
             except Exception as exc:
                 row_dict["status"] = "Lỗi"
-                row_dict["reason"] = f"Lỗi render: {exc}"
+                row_dict["reason"] = getattr(exc, "message_vi", None) or str(exc)
                 batch.error_count += 1
+            finally:
+                item["password"] = ""
 
             batch.updated_at = time.time()
 
-        batch.status = "done"
+        if batch.status != "stopped":
+            batch.status = "done"
+        batch.updated_at = time.time()
         batch.updated_at = time.time()
 
 
@@ -548,9 +610,15 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.Response(text="ok", content_type="text/plain", headers={"Cache-Control": "no-cache"})
 
 
+async def handle_api_stats(request: web.Request) -> web.Response:
+    state: WebState = request.app["state"]
+    return web.json_response(state.get_pacing_stats())
+
+
 def setup_routes(app: web.Application) -> None:
     # Health Check
     app.router.add_get("/health", handle_health)
+    app.router.add_get("/api/stats", handle_api_stats)
 
     # Pages HTML
     app.router.add_get("/", handle_page_single)
@@ -682,31 +750,93 @@ async def handle_api_job_status(request: web.Request) -> web.Response:
         "download_name": job.download_name,
         "summary": job.summary,
         "error": job.error,
+        "pacing_stats": state.get_pacing_stats(),
     })
 
 
+def reroll_account_from_json(
+    json_path: Path,
+    work_dir: Path,
+    state: WebState,
+    exclude_bg_id: str | None = None,
+    frame_color: str | None = None,
+    height: int = 1080,
+    watermark: str = "",
+) -> tuple[Path, str, str, str, str]:
+    """Vẽ lại ảnh thẻ từ file JSON đã lưu, không cào lại HoYoLAB, chỉ chọn nền trong acc."""
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    code = data["code"]
+    uid = str(data["uid"])
+    chars_acc = data.get("chars_in_account", [])
+    index_data = data["index_data"]
+    list_data = data["list_data"]
+    extras = data.get("extras")
+    wish_lines = data.get("wish_lines", [])
+
+    new_bg_id, new_bg_desc = pick_background_for_acc(
+        state.bg_lib, state.characters, chars_acc,
+        "auto", exclude_id=exclude_bg_id
+    )
+
+    root = Path(__file__).resolve().parent.parent.parent
+    icons = hoyolab.UrlIconCache(root / "icons" / "hoyolab")
+    enka_icons = IconCache(root / "icons")
+    options = RenderOptions(code=code, uid=uid)
+    sheet, report = hoyolab.build_sheet_from_data(
+        index_data, list_data, work_dir, icons, enka_icons, extras, options,
+        None, wish_lines
+    )
+
+    dest_path, filename, dl_name = render_account_card(
+        sheet, work_dir, code, uid, new_bg_id,
+        frame_color, height, watermark,
+        state.bg_lib, state.out_dir
+    )
+    return dest_path, filename, dl_name, new_bg_id, new_bg_desc
+
+
 async def handle_api_job_reroll(request: web.Request) -> web.Response:
-    """Nút 'Đổi nền': vẽ lại từ sheet đã có với nền ngẫu nhiên khác trong pool của acc."""
+    """Nút 'Đổi nền': vẽ lại từ file JSON đã lưu của acc với nền ngẫu nhiên khác trong pool acc."""
     state: WebState = request.app["state"]
     job_id = request.match_info["id"]
     job = state.single_jobs.get(job_id)
-    if not job or not job.sheet or not job.work_dir:
+    if not job:
         return web.json_response({"error": "Không tìm thấy dữ liệu để đổi nền"}, status=400)
 
-    # Chọn nền ngẫu nhiên khác trong pool acc
-    new_bg_id, new_bg_desc = pick_background_for_acc(
-        state.bg_lib, state.characters, job.chars_in_account,
-        "auto", exclude_id=job.current_bg_id
-    )
-    job.current_bg_id = new_bg_id
+    work_dir = job.work_dir or Path(tempfile.mkdtemp(prefix=f"gacard-reroll-{job.id[:8]}-"))
+    job.work_dir = work_dir
+
+    json_path = state.out_dir / f"acc-{job.code}-{job.uid}.json"
+    if not json_path.exists():
+        json_path = state.out_dir / f"acc-{job.code}.json"
 
     try:
-        dest_path, filename, dl_name = await asyncio.to_thread(
-            render_account_card,
-            job.sheet, job.work_dir, job.code, job.uid or "0", new_bg_id,
-            job.frame_color, job.height, job.watermark,
-            state.bg_lib, state.out_dir
-        )
+        if json_path.exists():
+            dest_path, filename, dl_name, new_bg_id, new_bg_desc = await asyncio.to_thread(
+                reroll_account_from_json,
+                json_path=json_path,
+                work_dir=work_dir,
+                state=state,
+                exclude_bg_id=job.current_bg_id,
+                frame_color=job.frame_color,
+                height=job.height,
+                watermark=job.watermark,
+            )
+        elif job.sheet:
+            new_bg_id, new_bg_desc = pick_background_for_acc(
+                state.bg_lib, state.characters, job.chars_in_account,
+                "auto", exclude_id=job.current_bg_id
+            )
+            dest_path, filename, dl_name = await asyncio.to_thread(
+                render_account_card,
+                job.sheet, work_dir, job.code, job.uid or "0", new_bg_id,
+                job.frame_color, job.height, job.watermark,
+                state.bg_lib, state.out_dir
+            )
+        else:
+            return web.json_response({"error": "Không tìm thấy file JSON hoặc dữ liệu để đổi nền"}, status=400)
+
+        job.current_bg_id = new_bg_id
         job.image_filename = filename
         job.image_url = f"/images/{filename}"
         job.download_name = dl_name
@@ -803,6 +933,7 @@ async def handle_api_batch_status(request: web.Request) -> web.Response:
         "error_count": batch.error_count,
         "current_index": batch.current_index,
         "rows": batch.rows,
+        "pacing_stats": state.get_pacing_stats(),
     })
 
 
