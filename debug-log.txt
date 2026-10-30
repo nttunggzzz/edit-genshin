@@ -439,3 +439,43 @@
 [16:25:31] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
 [16:25:41] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
 [16:25:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 15/15 tests passed OK. Verified captcha_mode=local.
+[16:30:15] [Job db9207c5] Khởi tạo job cho mã acc '1111'. Trả về job_id ngay lập tức cho client.
+[16:30:15] [Job db9207c5] Bắt đầu xử lý ghép ảnh acc '1111'...
+[16:30:15] [Job db9207c5] Khởi động trình duyệt Playwright...
+[16:30:16] [Job db9207c5] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[16:30:21] [Job db9207c5] Đang tìm và điền form đăng nhập HoYoLAB...
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[name="username"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[name="account"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[name="username"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[name="account"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[16:30:21] [Job db9207c5] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[16:30:21] [Job db9207c5] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[16:30:21] [Job db9207c5] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[16:30:21] [Job db9207c5] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[16:30:21] [Job db9207c5] [0s] Đang điền mật khẩu...
+[16:30:22] [Job db9207c5] [0s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[16:30:22] [Job db9207c5] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[16:30:24] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
+[16:30:24] [Job db9207c5] Phát hiện Captcha trượt! Vui lòng dùng chuột kéo trực tiếp trên cửa sổ trình duyệt (còn 300s)...
+[16:30:24] [Job db9207c5] HoYoLAB yêu cầu giải Captcha. Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình để kéo trực tiếp.
+[16:30:27] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
+[16:30:31] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 292s / 300s
+[16:30:34] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 289s / 300s
+[16:30:38] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 285s / 300s
+[16:30:42] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 282s / 300s
+[16:30:45] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 278s / 300s
+[16:30:49] [Job db9207c5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 275s / 300s
+[16:44:06] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:44:15] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+
+[16:45:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 18/18 tests passed OK. Verified bring_to_front logging, periodic retry, and automatic 8766 fallback.
+[16:45:35] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[16:47:12] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!

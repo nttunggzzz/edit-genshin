@@ -15,12 +15,16 @@ from gacard.hoyolab_login import (
     BATTLE_CHRONICLE_URL,
     LoginCookies,
     LoginError,
+    _bring_page_to_front,
     _detect_login_error,
     login_with_password,
 )
 from gacard.webapp import (
     BatchJob,
+    SingleJob,
     WebState,
+    handle_api_job_bring_to_front,
+    handle_api_job_fallback_web,
     process_single_account_pipeline,
     reroll_account_from_json,
     run_batch_job,
@@ -393,6 +397,114 @@ class TestWebPipeline(unittest.TestCase):
                 self.assertEqual(captcha_links_received, [""])
                 # Đã gọi bring_to_front() để đưa cửa sổ trình duyệt lên trước cho người dùng kéo
                 mock_page.bring_to_front.assert_called()
+
+    def test_bring_page_to_front_logs_and_returns_status(self):
+        """Kiểm tra _bring_page_to_front không bao giờ bỏ qua lỗi im lặng, log rõ thành công và thất bại."""
+        mock_page_ok = MagicMock()
+        logs_ok = []
+        res_ok = _bring_page_to_front(mock_page_ok, on_log=logs_ok.append)
+        self.assertTrue(res_ok)
+        self.assertEqual(len(logs_ok), 1)
+        self.assertIn("thành công", logs_ok[0])
+
+        mock_page_err = MagicMock()
+        mock_page_err.bring_to_front.side_effect = RuntimeError("Windows focus blocked")
+        logs_err = []
+        res_err = _bring_page_to_front(mock_page_err, on_log=logs_err.append)
+        self.assertFalse(res_err)
+        self.assertEqual(len(logs_err), 1)
+        self.assertIn("Không thể đưa cửa sổ", logs_err[0])
+        self.assertIn("Windows focus blocked", logs_err[0])
+
+    def test_captcha_mode_local_automatic_fallback_when_bring_front_fails(self):
+        """Kiểm tra khi đưa cửa sổ Chromium lên trước thất bại, hệ thống tự động mở server dự phòng ở port 8766."""
+        mock_page = MagicMock()
+        mock_context = MagicMock()
+        mock_page.context = mock_context
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value.new_context.return_value = mock_context
+        mock_context.new_page.return_value = mock_page
+
+        # Giả lập bring_to_front bị lỗi trên Windows
+        mock_page.bring_to_front.side_effect = RuntimeError("SetForegroundWindow failed")
+
+        captcha_links_received = []
+        def fake_on_captcha(link):
+            captcha_links_received.append(link)
+
+        with patch("gacard.hoyolab_login._fill_login_form_sync", return_value=True), \
+             patch("gacard.hoyolab_login._detect_login_error", return_value=None), \
+             patch("gacard.hoyolab_login._captcha_visible", side_effect=[True, False]), \
+             patch("gacard.hoyolab_login.BATTLE_CHRONICLE_URL", "http://battle-chronicle.local"):
+
+            mock_context.cookies.side_effect = [
+                [],
+                [],
+                [
+                    {"name": "ltuid_v2", "value": "12345", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "sample_token", "domain": ".hoyolab.com"},
+                ],
+                [
+                    {"name": "ltuid_v2", "value": "12345", "domain": ".hoyolab.com"},
+                    {"name": "ltoken_v2", "value": "sample_token", "domain": ".hoyolab.com"},
+                ]
+            ]
+
+            mock_server_instance = MagicMock()
+            mock_server_instance.start.return_value = "http://localhost:8765/?t=mock_fallback_token"
+
+            with patch("playwright.sync_api.sync_playwright") as mock_sync_pw:
+                mock_sync_pw.return_value.__enter__.return_value = mock_pw
+
+                with patch("gacard.login_web.CaptchaWebServer", return_value=mock_server_instance) as mock_captcha_server:
+                    login_with_password(
+                        "user", "pass",
+                        captcha_mode="local",
+                        on_captcha=fake_on_captcha,
+                        timeout_seconds=5
+                    )
+                    # Vì bring_to_front lỗi, CaptchaWebServer PHẢI được khởi động làm phương án dự phòng!
+                    mock_captcha_server.assert_called_once_with(mock_page, port=8765)
+                    mock_server_instance.start.assert_called_once()
+
+                # on_captcha phải nhận được link dự phòng của server
+                self.assertEqual(captcha_links_received, ["http://localhost:8765/?t=mock_fallback_token"])
+
+    def test_api_endpoints_bring_to_front_and_fallback_web(self):
+        """Kiểm tra API /api/jobs/{id}/bring-to-front và /api/jobs/{id}/fallback-web-captcha."""
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            job = SingleJob(id="job_test_actions", code="111", username="u", password="p")
+            
+            bring_front_called = []
+            fallback_web_called = []
+            job.bring_to_front_fn = lambda: bring_front_called.append(True) or True
+            job.fallback_web_fn = lambda: fallback_web_called.append(True) or "http://localhost:8766/?t=fallback"
+            
+            state.single_jobs[job.id] = job
+
+            # Giả lập request gọi API bring-to-front
+            mock_req_bring = MagicMock()
+            mock_req_bring.app = {"state": state}
+            mock_req_bring.match_info = {"id": job.id}
+
+            resp_bring = asyncio.run(handle_api_job_bring_to_front(mock_req_bring))
+            self.assertEqual(resp_bring.status, 200)
+            data_bring = json.loads(resp_bring.text)
+            self.assertTrue(data_bring["ok"])
+            self.assertEqual(len(bring_front_called), 1)
+
+            # Giả lập request gọi API fallback-web-captcha
+            mock_req_fallback = MagicMock()
+            mock_req_fallback.app = {"state": state}
+            mock_req_fallback.match_info = {"id": job.id}
+
+            resp_fallback = asyncio.run(handle_api_job_fallback_web(mock_req_fallback))
+            self.assertEqual(resp_fallback.status, 200)
+            data_fallback = json.loads(resp_fallback.text)
+            self.assertTrue(data_fallback["ok"])
+            self.assertIn("8766", data_fallback["link"])
+            self.assertEqual(len(fallback_web_called), 1)
 
 
 if __name__ == "__main__":

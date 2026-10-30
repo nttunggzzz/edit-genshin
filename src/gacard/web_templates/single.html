@@ -166,14 +166,26 @@
         <div id="countdownBox" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius); font-weight: 500; font-size: 13px; color: #fbbf24;">
           <span id="countdownText">Thời gian còn lại để kéo Captcha: 300s</span>
         </div>
-        <div id="captchaArea" style="display: none; margin-top: 12px;">
-          <div style="font-weight: 600; color: #fbbf24;">HoYoLAB yêu cầu kéo Captcha xác minh:</div>
-          <div class="captcha-actions">
-            <a id="captchaBtn" href="#" target="_blank" class="btn btn-warning">Mở trang kéo Captcha</a>
-          </div>
-          <div style="margin-top: 8px;">
-            <input type="text" id="captchaLinkInput" readonly style="font-size: 12px; color: var(--text-muted);">
-          </div>
+        <!-- Vùng nút hỗ trợ khi chờ Captcha -->
+        <div id="captchaControls" style="display: none; margin-top: 12px; flex-wrap: wrap; gap: 10px; align-items: center;">
+          <button type="button" id="bringFrontBtn" class="btn btn-secondary" onclick="requestBringToFront()" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            Hiện cửa sổ Chromium lên trước
+          </button>
+          <a id="captchaBtn" href="#" target="_blank" class="btn btn-warning" style="display: none;">
+            Mở trang kéo Captcha dự phòng (Cổng 8766)
+          </a>
+          <button type="button" id="triggerFallbackBtn" class="btn btn-secondary" onclick="requestFallbackWebCaptcha()" style="display: none;">
+            Mở trang kéo dự phòng (Cổng 8766)
+          </button>
+        </div>
+        <div id="bringFrontNotice" style="display: none; font-size: 12px; margin-top: 6px;"></div>
+        <div id="captchaArea" style="display: none; margin-top: 8px;">
+          <input type="text" id="captchaLinkInput" readonly style="font-size: 12px; color: var(--text-muted); width: 100%;">
         </div>
       </div>
 
@@ -376,6 +388,10 @@
       document.getElementById('statusDesc').textContent = desc;
       document.getElementById('captchaArea').style.display = 'none';
       document.getElementById('countdownBox').style.display = 'none';
+      const cControls = document.getElementById('captchaControls');
+      if (cControls) cControls.style.display = 'none';
+      const notice = document.getElementById('bringFrontNotice');
+      if (notice) notice.style.display = 'none';
     }
 
     let pollFailures = 0;
@@ -419,18 +435,27 @@
 
         const cArea = document.getElementById('captchaArea');
         const cBox = document.getElementById('countdownBox');
+        const cControls = document.getElementById('captchaControls');
         cBox.style.display = 'block';
+        cControls.style.display = 'flex';
+
+        const cBtn = document.getElementById('captchaBtn');
+        const triggerBtn = document.getElementById('triggerFallbackBtn');
 
         if (job.captcha_link) {
-          // Chế độ web (kéo trên port 8766)
+          // Đã có link server dự phòng (port 8766)
           cArea.style.display = 'block';
-          document.getElementById('statusDesc').textContent = job.stage_message || 'HoYoLAB yêu cầu kéo thanh trượt ghép hình. Vui lòng bấm nút dưới đây để kéo:';
-          document.getElementById('captchaBtn').href = job.captcha_link || '#';
+          cBtn.style.display = 'inline-flex';
+          cBtn.href = job.captcha_link;
+          triggerBtn.style.display = 'none';
+          document.getElementById('statusDesc').textContent = job.stage_message || 'Đã mở trang web kéo Captcha dự phòng. Bạn có thể kéo trên cửa sổ Chromium hoặc bấm nút bên dưới:';
           document.getElementById('captchaLinkInput').value = job.captcha_link || '';
         } else {
-          // Chế độ local (kéo trực tiếp trên cửa sổ trình duyệt Chromium)
+          // Đang ở chế độ local thuần (chờ kéo trên Chromium)
           cArea.style.display = 'none';
-          document.getElementById('statusDesc').textContent = job.stage_message || 'Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình. Vui lòng dùng chuột kéo thanh trượt trực tiếp trên cửa sổ đó.';
+          cBtn.style.display = 'none';
+          triggerBtn.style.display = 'inline-flex';
+          document.getElementById('statusDesc').textContent = job.stage_message || 'Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình máy tính. Vui lòng dùng chuột kéo thanh trượt trực tiếp trên cửa sổ đó.';
         }
 
         // Đếm ngược 300s
@@ -455,6 +480,46 @@
         clearInterval(pollTimer);
         clearInterval(captchaTimer);
         showStatus('status-error', 'Ghép ảnh thất bại', job.error || job.stage_message || 'Đã có lỗi xảy ra.');
+      }
+    }
+
+    async function requestBringToFront() {
+      if (!currentJobId) return;
+      const btn = document.getElementById('bringFrontBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/jobs/${currentJobId}/bring-to-front`, { method: 'POST' });
+        const data = await res.json();
+        const notice = document.getElementById('bringFrontNotice');
+        notice.style.display = 'block';
+        notice.textContent = data.message || (data.ok ? 'Đã yêu cầu đưa cửa sổ Chromium lên trước màn hình.' : 'Không thể đưa cửa sổ lên trước.');
+        notice.style.color = data.ok ? 'var(--success)' : 'var(--warning)';
+        setTimeout(() => { notice.style.display = 'none'; }, 4000);
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function requestFallbackWebCaptcha() {
+      if (!currentJobId) return;
+      const btn = document.getElementById('triggerFallbackBtn');
+      btn.disabled = true;
+      btn.textContent = 'Đang kích hoạt...';
+      try {
+        const res = await fetch(`/api/jobs/${currentJobId}/fallback-web-captcha`, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok && data.link) {
+          window.open(data.link, '_blank');
+        } else {
+          alert('Không thể kích hoạt trang kéo dự phòng: ' + (data.message || 'Lỗi'));
+        }
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Mở trang kéo dự phòng (Cổng 8766)';
       }
     }
 

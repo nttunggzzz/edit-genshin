@@ -367,6 +367,23 @@ def _click_login_trigger(page: Any, on_log: Callable[[str], None] | None = None)
     return False
 
 
+def _bring_page_to_front(page: Any, on_log: Callable[[str], None] | None = None) -> bool:
+    """Đưa cửa sổ trình duyệt Chromium lên trước màn hình và ghi log rõ ràng kết quả."""
+    try:
+        page.bring_to_front()
+        msg = "Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công."
+        log.info(msg)
+        if on_log:
+            on_log(msg)
+        return True
+    except Exception as exc:
+        msg = f"Không thể đưa cửa sổ trình duyệt Chromium lên trước ({type(exc).__name__}: {exc})."
+        log.warning(msg)
+        if on_log:
+            on_log(msg)
+        return False
+
+
 def login_with_password(
     username: str,
     password: str,
@@ -378,6 +395,7 @@ def login_with_password(
     on_captcha: Callable[[str], None] | None = None,
     on_stage: Callable[[str, str], None] | None = None,
     timeout_seconds: float = CAPTCHA_TIMEOUT_SECONDS,
+    on_register_actions: Callable[[Callable[[], bool], Callable[[], str | None]], None] | None = None,
 ) -> LoginCookies:
     """Đăng nhập đồng bộ (chạy bằng asyncio.to_thread từ bot).
 
@@ -408,28 +426,54 @@ def login_with_password(
                 timezone_id="Asia/Ho_Chi_Minh",
             )
             page = context.new_page()
+            web_server = None
+
+            def _stage_log(msg: str) -> None:
+                if on_stage:
+                    on_stage("logging_in", msg)
+
+            def _do_bring_to_front() -> bool:
+                return _bring_page_to_front(page, on_log=_stage_log)
+
+            def _do_fallback_web() -> str | None:
+                nonlocal web_server
+                if web_server is None:
+                    try:
+                        from gacard.login_web import CaptchaWebServer
+                        web_server = CaptchaWebServer(page, port=captcha_port)
+                        link = web_server.start(base_url=captcha_url_base)
+                        web_server.tick()
+                        if on_captcha is not None:
+                            on_captcha(link)
+                        if on_stage:
+                            on_stage("waiting_captcha", f"Đã mở trang web kéo Captcha dự phòng tại cổng {captcha_port}.")
+                        log.info("Người dùng đã kích hoạt mở CaptchaWebServer dự phòng tại cổng %d", captcha_port)
+                        return link
+                    except Exception as e:
+                        log.warning("Không thể mở CaptchaWebServer dự phòng: %s", e)
+                        return None
+                return getattr(web_server, "base_url", None) or f"http://localhost:{captcha_port}/"
+
+            if on_register_actions:
+                on_register_actions(_do_bring_to_front, _do_fallback_web)
+
             try:
                 if on_stage:
                     on_stage("logging_in", "Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...")
                 page.goto(HOYOLAB_HOME, timeout=LOGIN_TIMEOUT_MS)
                 page.wait_for_timeout(2000)
-                try:
-                    page.bring_to_front()
-                except Exception:
-                    pass
+                _bring_page_to_front(page, on_log=_stage_log)
                 if not _signed_in(page):
                     if on_stage:
                         on_stage("logging_in", "Đang tìm và điền form đăng nhập HoYoLAB...")
-                    def _stage_log(msg: str) -> None:
-                        if on_stage:
-                            on_stage("logging_in", msg)
                     filled = _fill_login_form_sync(page, username, password, on_log=_stage_log)
                     if not filled:
                         raise LoginError("login_failed")
                     page.wait_for_timeout(2000)
                 deadline = time.monotonic() + timeout_seconds
                 captcha_announced = False
-                web_server = None
+                captcha_start_time = 0.0
+                last_bring_front_time = 0.0
                 last_log_time = 0.0
                 try:
                     while True:
@@ -477,12 +521,11 @@ def login_with_password(
                         if has_captcha:
                             if not captcha_announced:
                                 captcha_announced = True
-                                if on_stage:
-                                    if captcha_mode == "web":
-                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn {remaining}s)...")
-                                    else:
-                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Vui lòng dùng chuột kéo trực tiếp trên cửa sổ trình duyệt (còn {remaining}s)...")
+                                captcha_start_time = now
+                                last_bring_front_time = now
                                 if captcha_mode == "web":
+                                    if on_stage:
+                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn {remaining}s)...")
                                     from gacard.login_web import CaptchaWebServer
 
                                     web_server = CaptchaWebServer(page, port=captcha_port)
@@ -491,15 +534,51 @@ def login_with_password(
                                     if on_captcha is not None:
                                         on_captcha(link)
                                 else:
-                                    try:
-                                        page.bring_to_front()
-                                    except Exception:
-                                        pass
-                                    if on_captcha is not None:
-                                        on_captcha("")
+                                    front_ok = _bring_page_to_front(page, on_log=_stage_log)
+                                    if front_ok:
+                                        if on_stage:
+                                            on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Cửa sổ Chromium đã hiện lên trước (còn {remaining}s)...")
+                                        if on_captcha is not None:
+                                            on_captcha("")
+                                    else:
+                                        # Cửa sổ local không đưa lên trước được -> tự động chuyển sang trang kéo dự phòng ngay lập tức!
+                                        if on_stage:
+                                            on_stage("waiting_captcha", f"Không thể đưa cửa sổ Chromium lên trước! Tự động mở trang kéo dự phòng (còn {remaining}s)...")
+                                        try:
+                                            from gacard.login_web import CaptchaWebServer
+                                            web_server = CaptchaWebServer(page, port=captcha_port)
+                                            link = web_server.start(base_url=captcha_url_base)
+                                            web_server.tick()
+                                            if on_captcha is not None:
+                                                on_captcha(link)
+                                            log.info("Đã tự động chuyển sang CaptchaWebServer dự phòng tại cổng %d do không đưa được cửa sổ lên trước.", captcha_port)
+                                        except Exception as err:
+                                            log.warning("Không thể mở CaptchaWebServer dự phòng: %s", err)
 
                             if now > deadline:
                                 raise LoginError("captcha_timeout")
+
+                            # Trong lúc chờ captcha ở chế độ local:
+                            if captcha_mode == "local":
+                                # 1. Gọi đưa cửa sổ lên trước lặp lại mỗi 5 giây
+                                if now - last_bring_front_time >= 5.0:
+                                    last_bring_front_time = now
+                                    _bring_page_to_front(page, on_log=_stage_log)
+
+                                # 2. Nếu sau 15 giây chờ kéo mà web_server chưa bật, tự động mở server dự phòng ở port 8766
+                                if web_server is None and (now - captcha_start_time >= 15.0):
+                                    try:
+                                        from gacard.login_web import CaptchaWebServer
+                                        web_server = CaptchaWebServer(page, port=captcha_port)
+                                        link = web_server.start(base_url=captcha_url_base)
+                                        web_server.tick()
+                                        if on_captcha is not None:
+                                            on_captcha(link)
+                                        if on_stage:
+                                            on_stage("waiting_captcha", f"Đã mở thêm trang kéo Captcha dự phòng tại cổng {captcha_port}...")
+                                        log.info("Đã tự động mở CaptchaWebServer dự phòng tại cổng %d sau 15s chờ local.", captcha_port)
+                                    except Exception as e:
+                                        log.warning("Không thể mở CaptchaWebServer dự phòng: %s", e)
 
                             if web_server is not None:
                                 web_server.tick()
