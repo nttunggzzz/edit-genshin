@@ -19,11 +19,13 @@ from gacard.hoyolab_login import (
     _detect_login_error,
     login_with_password,
 )
+from gacard.login_web import CaptchaWebServer
 from gacard.webapp import (
     BatchJob,
     SingleJob,
     WebState,
     handle_api_job_bring_to_front,
+    handle_api_job_captcha_proof,
     handle_api_job_fallback_web,
     process_single_account_pipeline,
     reroll_account_from_json,
@@ -559,6 +561,127 @@ class TestWebPipeline(unittest.TestCase):
 
                 # Xác minh bring_to_front đã được gọi trong luồng Playwright
                 mock_page.bring_to_front.assert_called()
+
+    def test_fake_captcha_page_drag_accuracy_and_human_motion(self):
+        """Chứng minh bằng test giả: quy đổi tọa độ 1280x800 chính xác và kéo từng bước nhỏ giống tay người."""
+        mock_page = MagicMock()
+        mock_page.viewport_size = {"width": 1280, "height": 800}
+
+        moves_recorded = []
+        timeouts_recorded = []
+        is_mouse_down = False
+        mouse_down_called = False
+        mouse_up_called = False
+
+        def fake_move(x, y):
+            moves_recorded.append((float(x), float(y)))
+
+        def fake_down():
+            nonlocal is_mouse_down, mouse_down_called
+            is_mouse_down = True
+            mouse_down_called = True
+
+        def fake_up():
+            nonlocal is_mouse_down, mouse_up_called
+            is_mouse_down = False
+            mouse_up_called = True
+
+        mock_page.mouse.move = fake_move
+        mock_page.mouse.down = fake_down
+        mock_page.mouse.up = fake_up
+        mock_page.wait_for_timeout = lambda ms: timeouts_recorded.append(ms)
+
+        server = CaptchaWebServer(mock_page, port=8765)
+
+        # Giả lập payload kéo từ trình duyệt web với kích thước ảnh hiển thị 640x400:
+        # Người dùng kéo từ x=200, y=250 tới x=500, y=250 trên ảnh hiển thị
+        payload = {
+            "x0": 200, "y0": 250,
+            "x1": 500, "y1": 250,
+            "w": 640, "h": 400
+        }
+
+        # 1. Thực thi kéo trên trang captcha giả
+        server._execute_drag(payload)
+
+        # 2. Kiểm tra quy đổi tọa độ chính xác về 1280x800:
+        # start: (200 / 640) * 1280 = 400.0, (250 / 400) * 800 = 500.0
+        # end:   (500 / 640) * 1280 = 1000.0, (250 / 400) * 800 = 500.0
+        self.assertTrue(mouse_down_called)
+        self.assertTrue(mouse_up_called)
+        self.assertGreaterEqual(len(moves_recorded), 28)  # Kéo từng bước nhỏ (> 28 bước)
+
+        first_move = moves_recorded[0]
+        self.assertAlmostEqual(first_move[0], 400.0, places=1)
+        self.assertAlmostEqual(first_move[1], 500.0, places=1)
+
+        last_move = moves_recorded[-1]
+        self.assertAlmostEqual(last_move[0], 1000.0, places=1)
+        self.assertAlmostEqual(last_move[1], 500.0, places=1)
+
+        # 3. Kiểm tra kéo giống tay người (có biến thiên tốc độ, có rung lắc nhẹ và dừng nhẹ):
+        # Tọa độ X phải tăng dần về đích
+        x_values = [pt[0] for pt in moves_recorded]
+        self.assertTrue(all(x_values[i] <= x_values[i+1] + 1.0 for i in range(len(x_values)-1)))
+
+        # Tọa độ Y có dao động vi mô (tremor) xung quanh 500.0 chứ không phải đường thẳng tuyệt đối
+        y_values = [pt[1] for pt in moves_recorded]
+        y_deviations = [abs(y - 500.0) for y in y_values]
+        self.assertTrue(any(dev > 0.05 for dev in y_deviations))
+
+        # Kiểm tra có dừng nhẹ và độ trễ biến thiên giữa các bước
+        self.assertGreaterEqual(len(timeouts_recorded), 28)
+        self.assertTrue(any(t >= 40 for t in timeouts_recorded))  # Có bước dừng nhẹ
+
+    def test_jpeg_stream_content_type_and_fast_refresh(self):
+        """Kiểm tra máy chủ CaptchaWebServer phục vụ ảnh JPEG nhẹ với header chuẩn b'\\xff\\xd8'."""
+        import urllib.request
+
+        mock_page = MagicMock()
+        mock_page.viewport_size = {"width": 1280, "height": 800}
+        fake_jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIFfake_jpeg_stream"
+        mock_page.screenshot.return_value = fake_jpeg
+
+        server = CaptchaWebServer(mock_page, port=18765)
+        server.tick()
+        link = server.start()
+        token = server.token
+
+        try:
+            # Gửi request lấy ảnh /shot
+            shot_url = f"http://127.0.0.1:{server.port}/shot?t={token}"
+            req = urllib.request.Request(shot_url)
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                self.assertEqual(resp.status, 200)
+                content_type = resp.headers.get("Content-Type")
+                self.assertEqual(content_type, "image/jpeg")
+                body = resp.read()
+                # Kiểm tra magic bytes của định dạng JPEG
+                self.assertTrue(body.startswith(b"\xff\xd8"))
+        finally:
+            server.stop()
+
+    def test_captcha_proof_screenshot_api_and_job_storage(self):
+        """Kiểm tra khi phát hiện Captcha, bot lưu ảnh bằng chứng JPEG và API web 8001 phục vụ ảnh đó."""
+        with tempfile.TemporaryDirectory() as tmp:
+            state = WebState(Path(tmp))
+            job = SingleJob(id="job_proof_test", code="111", username="u", password="p", status="waiting_captcha")
+            
+            # Giả lập ảnh bằng chứng JPEG thực tế
+            fake_proof_jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIFfake_proof_data"
+            job.captcha_proof_bytes = fake_proof_jpeg
+            job.captcha_proof_url = f"/api/jobs/{job.id}/captcha-proof.jpg"
+            state.single_jobs[job.id] = job
+
+            # Giả lập gọi API lấy ảnh bằng chứng
+            mock_req = MagicMock()
+            mock_req.app = {"state": state}
+            mock_req.match_info = {"id": job.id}
+
+            resp = asyncio.run(handle_api_job_captcha_proof(mock_req))
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.content_type, "image/jpeg")
+            self.assertEqual(resp.body, fake_proof_jpeg)
 
 
 if __name__ == "__main__":

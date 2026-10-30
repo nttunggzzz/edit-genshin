@@ -389,13 +389,14 @@ def login_with_password(
     password: str,
     *,
     headless: bool = False,
-    captcha_mode: str = "local",
+    captcha_mode: str = "web",
     captcha_url_base: str = "",
     captcha_port: int = 8765,
     on_captcha: Callable[[str], None] | None = None,
     on_stage: Callable[[str, str], None] | None = None,
     timeout_seconds: float = CAPTCHA_TIMEOUT_SECONDS,
     check_action_requests: Callable[[], dict[str, bool]] | None = None,
+    on_captcha_proof: Callable[[bytes], None] | None = None,
 ) -> LoginCookies:
     """Đăng nhập đồng bộ (chạy bằng asyncio.to_thread từ bot).
 
@@ -413,7 +414,7 @@ def login_with_password(
         raise LoginError("playwright_missing") from None
 
     if captcha_mode not in ("local", "web"):
-        captcha_mode = "local"
+        captcha_mode = "web"
     try:
         if on_stage:
             on_stage("logging_in", "Khởi động trình duyệt Playwright...")
@@ -520,9 +521,21 @@ def login_with_password(
                                 captcha_announced = True
                                 captcha_start_time = now
                                 last_bring_front_time = now
+
+                                # Chụp ảnh bằng chứng màn hình thật của Captcha gửi về web 8001
+                                try:
+                                    try:
+                                        proof_shot = page.screenshot(type="jpeg", quality=75)
+                                    except Exception:
+                                        proof_shot = page.screenshot()
+                                    if proof_shot and on_captcha_proof:
+                                        on_captcha_proof(proof_shot)
+                                except Exception as exc:
+                                    log.warning("Không thể chụp ảnh bằng chứng Captcha: %s", exc)
+
                                 if captcha_mode == "web":
                                     if on_stage:
-                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha (còn {remaining}s)...")
+                                        on_stage("waiting_captcha", f"Phát hiện Captcha trượt! Đang mở trang web kéo Captcha tại cổng {captcha_port} (còn {remaining}s)...")
                                     from gacard.login_web import CaptchaWebServer
 
                                     web_server = CaptchaWebServer(page, port=captcha_port)
@@ -538,7 +551,6 @@ def login_with_password(
                                         if on_captcha is not None and web_server is None:
                                             on_captcha("")
                                     else:
-                                        # Cửa sổ local không đưa lên trước được -> tự động chuyển sang trang kéo dự phòng ngay lập tức!
                                         if on_stage:
                                             on_stage("waiting_captcha", f"Không thể đưa cửa sổ Chromium lên trước! Tự động mở trang kéo dự phòng (còn {remaining}s)...")
                                         try:
@@ -557,12 +569,10 @@ def login_with_password(
 
                             # Trong lúc chờ captcha ở chế độ local:
                             if captcha_mode == "local":
-                                # 1. Gọi đưa cửa sổ lên trước lặp lại mỗi 5 giây
                                 if now - last_bring_front_time >= 5.0:
                                     last_bring_front_time = now
                                     _bring_page_to_front(page, on_log=_stage_log)
 
-                                # 2. Nếu sau 15 giây chờ kéo mà web_server chưa bật, tự động mở server dự phòng ở port 8766
                                 if web_server is None and (now - captcha_start_time >= 15.0):
                                     try:
                                         from gacard.login_web import CaptchaWebServer
@@ -579,9 +589,9 @@ def login_with_password(
 
                             if web_server is not None:
                                 web_server.tick()
-                                page.wait_for_timeout(800)
+                                page.wait_for_timeout(100)
                             else:
-                                page.wait_for_timeout(1000)
+                                page.wait_for_timeout(500)
                             continue
 
                         # 3. Hết thời gian mà vẫn chưa có cookie và chưa thấy captcha

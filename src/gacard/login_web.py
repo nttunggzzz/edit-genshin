@@ -143,7 +143,7 @@ img#cap:active {
       <span class="live-badge"><span class="live-dot"></span>Trực tiếp</span>
     </h2>
     <p class="guide">
-      Kéo chuột (hoặc ngón tay) trên ảnh từ nút trượt tới điểm ghép hình. Ảnh tự làm mới mỗi 800ms.
+      Kéo chuột (hoặc ngón tay) trên ảnh từ nút trượt tới điểm ghép hình. Luồng ảnh JPEG truyền trực tiếp tốc độ cao.
       Vui lòng giữ trang này mở cho đến khi hệ thống báo đăng nhập thành công.
     </p>
   </div>
@@ -154,8 +154,8 @@ img#cap:active {
     </div>
     <div id="err" class="error-msg">Không chụp được trình duyệt, vui lòng kiểm tra cửa sổ Playwright còn mở không.</div>
     <div class="status-bar">
-      <span id="sync-info">Đang kết nối...</span>
-      <span>Cập nhật: 800ms</span>
+      <span id="sync-info">Đang kết nối luồng ảnh trực tiếp...</span>
+      <span>Luồng JPEG trực tiếp</span>
     </div>
   </div>
 </div>
@@ -179,6 +179,7 @@ function refreshImage() {
     errBox.style.display = 'none';
     syncInfo.innerText = 'Đang đồng bộ trực tiếp (' + new Date().toLocaleTimeString() + ')';
     isRefreshing = false;
+    setTimeout(refreshImage, 60);
   };
   newImg.onerror = () => {
     failCount++;
@@ -187,15 +188,17 @@ function refreshImage() {
       syncInfo.innerText = 'Lỗi chụp màn hình (thất bại 3 lần)';
     }
     isRefreshing = false;
+    setTimeout(refreshImage, 300);
   };
   newImg.src = '/shot?t=' + encodeURIComponent(token) + '&x=' + Date.now();
 }
 
-setInterval(refreshImage, 800);
+refreshImage();
 
-let sx = 0, sy = 0, dragging = false;
+let sx = { x: 0, y: 0, w: 1, h: 1 };
+let dragging = false;
 
-function pos(e) {
+function getCoords(e) {
   const r = img.getBoundingClientRect();
   let cx = e.clientX, cy = e.clientY;
   if (e.touches && e.touches.length > 0) {
@@ -205,10 +208,12 @@ function pos(e) {
     cx = e.changedTouches[0].clientX;
     cy = e.changedTouches[0].clientY;
   }
-  return [
-    Math.max(0, Math.min(1000, Math.round((cx - r.left) / r.width * 1000))),
-    Math.max(0, Math.min(1000, Math.round((cy - r.top) / r.height * 1000)))
-  ];
+  return {
+    x: Math.max(0, Math.min(r.width, cx - r.left)),
+    y: Math.max(0, Math.min(r.height, cy - r.top)),
+    w: r.width,
+    h: r.height
+  };
 }
 
 img.addEventListener('dragstart', e => e.preventDefault());
@@ -216,39 +221,52 @@ img.addEventListener('dragstart', e => e.preventDefault());
 img.addEventListener('mousedown', e => {
   e.preventDefault();
   dragging = true;
-  [sx, sy] = pos(e);
+  sx = getCoords(e);
 });
 
 img.addEventListener('touchstart', e => {
   dragging = true;
-  [sx, sy] = pos(e);
+  sx = getCoords(e);
 }, { passive: true });
 
-function sendDrag(ex, ey) {
+function sendDrag(ex) {
   if (!dragging) return;
   dragging = false;
-  syncInfo.innerText = 'Đang gửi thao tác kéo chuột...';
+  syncInfo.innerText = 'Đang kéo thanh trượt trên máy chủ...';
   fetch('/drag', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ t: token, x0: sx, y0: sy, x1: ex, y1: ey })
+    body: JSON.stringify({
+      t: token,
+      x0: sx.x,
+      y0: sx.y,
+      x1: ex.x,
+      y1: ex.y,
+      w: sx.w,
+      h: sx.h,
+      // Fallback chuẩn hóa 0-1000
+      legacy_x0: Math.round((sx.x / sx.w) * 1000),
+      legacy_y0: Math.round((sx.y / sx.h) * 1000),
+      legacy_x1: Math.round((ex.x / ex.w) * 1000),
+      legacy_y1: Math.round((ex.y / ex.h) * 1000)
+    })
   }).then(res => {
     if (res.ok) {
-      setTimeout(refreshImage, 200);
+      setTimeout(refreshImage, 50);
     }
   }).catch(() => {});
 }
 
 window.addEventListener('mouseup', e => {
   if (!dragging) return;
-  const [ex, ey] = pos(e);
-  sendDrag(ex, ey);
+  const ex = getCoords(e);
+  sendDrag(ex);
 });
 
 img.addEventListener('touchend', e => {
   if (!dragging) return;
-  const [ex, ey] = pos(e);
-  sendDrag(ex, ey);
+  const ex = getCoords(e);
+  sendDrag(ex);
 });
 </script>
 </body>
@@ -258,9 +276,9 @@ img.addEventListener('touchend', e => {
 
 def make_placeholder_png(text: str = "Đang tải ảnh captcha...") -> bytes:
     """Tạo ảnh PNG placeholder khi chưa có ảnh hoặc lỗi chụp."""
-    img = Image.new("RGB", (800, 450), color=(15, 23, 42))
+    img = Image.new("RGB", (800, 500), color=(15, 23, 42))
     draw = ImageDraw.Draw(img)
-    draw.rectangle([8, 8, 792, 442], outline=(51, 65, 85), width=2)
+    draw.rectangle([8, 8, 792, 492], outline=(51, 65, 85), width=2)
 
     font = None
     for font_name in ("segoeui.ttf", "arial.ttf"):
@@ -277,13 +295,44 @@ def make_placeholder_png(text: str = "Đang tải ảnh captcha...") -> bytes:
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
         x = max(20, (800 - tw) // 2)
-        y = max(20, (450 - th) // 2)
+        y = max(20, (500 - th) // 2)
     except Exception:
-        x, y = 40, 210
+        x, y = 40, 235
 
     draw.text((x, y), text, fill=(248, 250, 252), font=font)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def make_placeholder_jpeg(text: str = "Đang tải ảnh captcha...") -> bytes:
+    """Tạo ảnh JPEG placeholder nhẹ khi chưa có ảnh hoặc lỗi chụp."""
+    img = Image.new("RGB", (800, 500), color=(15, 23, 42))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([8, 8, 792, 492], outline=(51, 65, 85), width=2)
+
+    font = None
+    for font_name in ("segoeui.ttf", "arial.ttf"):
+        try:
+            from PIL import ImageFont
+
+            font = ImageFont.truetype(font_name, 22)
+            break
+        except Exception:
+            continue
+
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+        x = max(20, (800 - tw) // 2)
+        y = max(20, (500 - th) // 2)
+    except Exception:
+        x, y = 40, 235
+
+    draw.text((x, y), text, fill=(248, 250, 252), font=font)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=75)
     return buf.getvalue()
 
 
@@ -307,8 +356,8 @@ class CaptchaWebServer:
         self._pending_drag: dict[str, Any] | None = None
 
     def tick(self) -> None:
-        """Gọi từ luồng Playwright: thực thi kéo chuột (nếu có) và chụp ảnh màn hình mới nhất."""
-        # 1. Xử lý thao tác kéo nếu có
+        """Gọi từ luồng Playwright: thực thi kéo chuột (nếu có) và chụp ảnh màn hình JPEG mới nhất."""
+        # 1. Xử lý thao tác kéo nếu có (trong chính luồng Playwright)
         drag_data = None
         with self._lock:
             if self._pending_drag is not None:
@@ -320,9 +369,12 @@ class CaptchaWebServer:
             except Exception as e:
                 print(f"[CaptchaWeb] Loi thuc hien keo chuot: {type(e).__name__}", flush=True)
 
-        # 2. Chụp ảnh màn hình trên chính luồng Playwright
+        # 2. Chụp ảnh màn hình JPEG nhẹ và nhanh trên chính luồng Playwright
         try:
-            shot = self.page.screenshot()
+            try:
+                shot = self.page.screenshot(type="jpeg", quality=75)
+            except (TypeError, Exception):
+                shot = self.page.screenshot()
             if shot and len(shot) > 0:
                 with self._lock:
                     self._screenshot_bytes = shot
@@ -347,23 +399,73 @@ class CaptchaWebServer:
             return self._screenshot_bytes, self._fail_count
 
     def _execute_drag(self, payload: dict[str, Any]) -> None:
-        """Chuyển tiếp một lần kéo của người dùng sang Playwright (chạy trên luồng Playwright)."""
-        size = self.page.viewport_size or {"width": 1280, "height": 800}
-        width, height = int(size["width"]), int(size["height"])
-        x0 = int(payload.get("x0", 0)) / 1000 * width
-        y0 = int(payload.get("y0", 0)) / 1000 * height
-        x1 = int(payload.get("x1", 0)) / 1000 * width
-        y1 = int(payload.get("y1", 0)) / 1000 * height
+        """Chuyển tiếp một lần kéo của người dùng sang Playwright giống tay người (chạy trên luồng Playwright)."""
+        import math
+        import random
+
+        size = getattr(self.page, "viewport_size", None) or {"width": 1280, "height": 800}
+        width = float(size.get("width", 1280))
+        height = float(size.get("height", 800))
+
+        # Quy đổi tọa độ chính xác từ kích thước ảnh hiển thị về kích thước thật 1280x800
+        view_w = float(payload.get("w", 0))
+        view_h = float(payload.get("h", 0))
+        if view_w > 0 and view_h > 0:
+            scale_x = width / view_w
+            scale_y = height / view_h
+            x0 = float(payload.get("x0", 0)) * scale_x
+            y0 = float(payload.get("y0", 0)) * scale_y
+            x1 = float(payload.get("x1", 0)) * scale_x
+            y1 = float(payload.get("y1", 0)) * scale_y
+        else:
+            # Fallback chuẩn hóa 0-1000
+            x0 = (float(payload.get("x0", 0)) / 1000.0) * width
+            y0 = (float(payload.get("y0", 0)) / 1000.0) * height
+            x1 = (float(payload.get("x1", 0)) / 1000.0) * width
+            y1 = (float(payload.get("y1", 0)) / 1000.0) * height
+
         mouse = self.page.mouse
         mouse.move(x0, y0)
+        self.page.wait_for_timeout(random.randint(40, 70))
         mouse.down()
-        steps = 25
+        self.page.wait_for_timeout(random.randint(30, 60))
+
+        dx = x1 - x0
+        dy = y1 - y0
+        dist = math.hypot(dx, dy)
+        if dist < 1.0:
+            self.page.wait_for_timeout(50)
+            mouse.up()
+            return
+
+        # Số bước kéo: phân bổ dựa trên khoảng cách (khoảng 28-55 bước)
+        steps = max(28, min(55, int(dist / 5.0)))
+        perp_x = -dy / dist
+        perp_y = dx / dist
+        pause_step = int(steps * 0.88)
+
         for i in range(1, steps + 1):
-            cur_x = x0 + (x1 - x0) * i / steps
-            cur_y = y0 + (y1 - y0) * i / steps
+            t = i / steps
+            # Smoothstep easing (3t^2 - 2t^3): khởi đầu chậm, tăng tốc ở giữa, giảm tốc ở cuối
+            s = t * t * (3.0 - 2.0 * t)
+            tremor = math.sin(t * math.pi * 3.0) * 1.2 * math.sin(t * math.pi)
+            cur_x = x0 + dx * s + perp_x * tremor
+            cur_y = y0 + dy * s + perp_y * tremor
+
             mouse.move(cur_x, cur_y)
-            self.page.wait_for_timeout(20)
-        self.page.wait_for_timeout(100)
+
+            # Tốc độ biến thiên: nhanh ở giữa, chậm ở 2 đầu
+            speed_factor = math.sin(t * math.pi)
+            step_delay = int(8 + (1.0 - speed_factor) * 14)
+
+            # Dừng nhẹ ở ~88% quãng đường trước khi buông chuột (giống mắt người căn chỉnh điểm ghép)
+            if i == pause_step:
+                self.page.wait_for_timeout(random.randint(45, 80))
+            else:
+                self.page.wait_for_timeout(step_delay)
+
+        mouse.move(x1, y1)
+        self.page.wait_for_timeout(random.randint(40, 80))
         mouse.up()
         print(f"[CaptchaWeb] Da chuyen tiep keo chuot: ({int(x0)}, {int(y0)}) -> ({int(x1)}, {int(y1)})", flush=True)
 
@@ -417,7 +519,8 @@ class CaptchaWebServer:
                             data = make_placeholder_png("Đang tải ảnh captcha...")
                         err_msg = "None" if fails < 3 else "CaptureFailed3Times"
                         print(f"[CaptchaWeb /shot] status=200, bytes={len(data)}, error={err_msg}", flush=True)
-                        self._ok(data, "image/png")
+                        ctype = "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
+                        self._ok(data, ctype)
                         return
 
                     html = PAGE_HTML.replace("{token}", server.token)

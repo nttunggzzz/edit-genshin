@@ -140,6 +140,8 @@ class SingleJob:
     error: str | None = None
     req_bring_to_front: bool = False
     req_fallback_web: bool = False
+    captcha_proof_bytes: bytes | None = None
+    captcha_proof_url: str = ""
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -335,12 +337,13 @@ def process_single_account_pipeline(
     work_dir: Path,
     on_stage: Callable[[str, str], None] | None = None,
     on_captcha: Callable[[str], None] | None = None,
-    captcha_mode: str = "local",
+    captcha_mode: str = "web",
     check_action_requests: Callable[[], dict[str, bool]] | None = None,
+    on_captcha_proof: Callable[[bytes], None] | None = None,
 ) -> tuple[Path, str, str, str, str, Any, Any, list[str], list[str]]:
     """Lõi xử lý thống nhất cho 1 acc (dùng chung cho cả Ghép đơn và Ghép hàng loạt Excel):
     1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong, không dùng profile Chrome cá nhân.
-    2. Chế độ captcha: 'local' (hiện cửa sổ Chromium cho người dùng kéo trực tiếp, có dự phòng).
+    2. Chế độ captcha: 'web' (kéo qua giao diện web trực tiếp, có ảnh bằng chứng chụp từ HoYoLAB).
     3. Ghé qua Battle Chronicle 1 lần để lấy cookie_token_v2.
     4. Cào thông tin với delay ngẫu nhiên 1-5s giữa các request.
     5. Lưu JSON sạch trước khi vẽ.
@@ -361,6 +364,7 @@ def process_single_account_pipeline(
         on_stage=on_stage,
         timeout_seconds=300.0,
         check_action_requests=check_action_requests,
+        on_captcha_proof=on_captcha_proof,
     )
     uids = discover_uids(cookies)
     if not uids:
@@ -476,6 +480,11 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
             job.updated_at = time.time()
             log_terminal(job.id, msg)
 
+        def _on_captcha_proof(proof_bytes: bytes) -> None:
+            job.captcha_proof_bytes = proof_bytes
+            job.captcha_proof_url = f"/api/jobs/{job.id}/captcha-proof.jpg"
+            job.updated_at = time.time()
+
         def _check_action_requests() -> dict[str, bool]:
             actions = {
                 "bring_to_front": job.req_bring_to_front,
@@ -505,8 +514,9 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
                 work_dir=work_dir,
                 on_stage=_on_stage,
                 on_captcha=_on_captcha,
-                captcha_mode="local",
+                captcha_mode="web",
                 check_action_requests=_check_action_requests,
+                on_captcha_proof=_on_captcha_proof,
             )
             job.uid = uid
             job.sheet = sheet
@@ -660,6 +670,7 @@ def setup_routes(app: web.Application) -> None:
     # API Single
     app.router.add_post("/api/single", handle_api_single)
     app.router.add_get("/api/jobs/{id}", handle_api_job_status)
+    app.router.add_get("/api/jobs/{id}/captcha-proof.jpg", handle_api_job_captcha_proof)
     app.router.add_post("/api/jobs/{id}/reroll-bg", handle_api_job_reroll)
     app.router.add_post("/api/jobs/{id}/bring-to-front", handle_api_job_bring_to_front)
     app.router.add_post("/api/jobs/{id}/fallback-web-captcha", handle_api_job_fallback_web)
@@ -777,6 +788,7 @@ async def handle_api_job_status(request: web.Request) -> web.Response:
         "stage_message": job.stage_message,
         "captcha_link": job.captcha_link,
         "captcha_deadline": job.captcha_deadline,
+        "captcha_proof_url": job.captcha_proof_url,
         "image_filename": job.image_filename,
         "image_url": job.image_url,
         "download_name": job.download_name,
@@ -784,6 +796,19 @@ async def handle_api_job_status(request: web.Request) -> web.Response:
         "error": job.error,
         "pacing_stats": state.get_pacing_stats(),
     })
+
+
+async def handle_api_job_captcha_proof(request: web.Request) -> web.Response:
+    state: WebState = request.app["state"]
+    job_id = request.match_info["id"]
+    job = state.single_jobs.get(job_id)
+    if not job or not job.captcha_proof_bytes:
+        return web.Response(text="No captcha proof available", status=404)
+    return web.Response(
+        body=job.captcha_proof_bytes,
+        content_type="image/jpeg",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 
 def reroll_account_from_json(

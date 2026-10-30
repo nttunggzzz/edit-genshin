@@ -552,3 +552,77 @@
 [17:04:02] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
 [17:05:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 19/19 tests passed OK. Verified API only sets flags and browser thread safely processes bring_to_front and fallback_web.
 [17:04:58] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[17:12:26] [Job ccac70a5] Khởi tạo job cho mã acc '11'. Trả về job_id ngay lập tức cho client.
+[17:12:26] [Job ccac70a5] Bắt đầu xử lý ghép ảnh acc '11'...
+[17:12:26] [Job ccac70a5] Khởi động trình duyệt Playwright...
+[17:12:27] [Job ccac70a5] Trình duyệt đã mở, đang kết nối máy chủ HoYoLAB...
+[17:12:30] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:30] [Job ccac70a5] Đang tìm và điền form đăng nhập HoYoLAB...
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[name="username"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[name="account"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[name="username"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[name="account"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Tên Người Dùng"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Username"]'
+[17:12:30] [Job ccac70a5] [0s] Không thấy selector user: 'input[placeholder*="Email"]'
+[17:12:30] [Job ccac70a5] [0s] Đã tìm thấy selector user: 'input[name="username"]'
+[17:12:30] [Job ccac70a5] [0s] Đã tìm thấy selector password: 'input[type="password"]'
+[17:12:30] [Job ccac70a5] [0s] Đang điền tài khoản vào selector 'input[name="username"]'...
+[17:12:30] [Job ccac70a5] [0s] Đang điền mật khẩu...
+[17:12:31] [Job ccac70a5] [0s] Đã tìm thấy nút submit 'button.cmn-button[type="submit"]', đang bấm...
+[17:12:31] [Job ccac70a5] [0s] Đã gửi form, đang chờ HoYoLAB xác nhận...
+[17:12:33] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 300s / 300s
+[17:12:33] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:33] [Job ccac70a5] Phát hiện Captcha trượt! Cửa sổ Chromium đã hiện lên trước (còn 300s)...
+[17:12:33] [Job ccac70a5] HoYoLAB yêu cầu giải Captcha. Cửa sổ trình duyệt Chromium đã hiện lên trên màn hình để kéo trực tiếp.
+[17:12:36] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:36] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 296s / 300s
+[17:12:39] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:40] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 293s / 300s
+[17:12:43] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 289s / 300s
+[17:12:44] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:47] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 286s / 300s
+[17:12:50] [Job ccac70a5] HoYoLAB yêu cầu giải Captcha tại http://127.0.0.1:8766/?t=[REDACTED_TOKEN]
+[17:12:50] [Job ccac70a5] Đã mở thêm trang kéo Captcha dự phòng tại cổng 8766...
+[17:12:51] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:51] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 281s / 300s
+[17:12:51] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:55] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 278s / 300s
+[17:12:57] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:12:58] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 274s / 300s
+[17:13:01] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 271s / 300s
+[17:13:02] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:05] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 268s / 300s
+[17:13:08] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 264s / 300s
+[17:13:08] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:11] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 261s / 300s
+[17:13:13] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:14] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 258s / 300s
+[17:13:18] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 255s / 300s
+[17:13:19] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:21] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 252s / 300s
+[17:13:24] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 248s / 300s
+[17:13:24] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:27] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 245s / 300s
+[17:13:30] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:31] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 242s / 300s
+[17:13:35] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 237s / 300s
+[17:13:35] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:38] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 234s / 300s
+[17:13:40] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:41] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 231s / 300s
+[17:13:45] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 228s / 300s
+[17:13:46] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:13:48] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 224s / 300s
+[17:13:51] [Job ccac70a5] Kiểm tra phản hồi HoYoLAB: đã có cookie=False, captcha hiện=True, còn lại 221s / 300s
+[17:13:51] [Job ccac70a5] Đã đưa cửa sổ trình duyệt Chromium lên trước màn hình thành công.
+[17:26:56] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[17:28:37] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[17:29:18] [Job batch_te] HoYoLAB giới hạn tạm thời (Too many requests). Đã dừng hàng đợi tại hàng 1!
+[17:30:00] [UnitTests] Run test_webapp.py & test_web_pipeline.py: 22/22 tests passed OK. Verified JPEG streaming, exact 1280x800 coordinate mapping, human-like drag motion, and captcha proof screenshot.
