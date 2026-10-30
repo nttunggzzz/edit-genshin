@@ -1,6 +1,15 @@
 @echo off
 setlocal
 
+:: Chuyen thu muc ve thu muc goc cua du an neu chay tu Desktop hoac noi khac
+if exist "%~dp0scripts\launch_cdp_browser.bat" (
+    cd /d "%~dp0"
+) else if exist "%~dp0..\scripts\launch_cdp_browser.bat" (
+    cd /d "%~dp0.."
+) else if exist "E:\New folder\scripts\launch_cdp_browser.bat" (
+    cd /d "E:\New folder"
+)
+
 echo ====================================================
 echo   KHOI DONG TRINH DUYET CDP CHO GHEP ANH GENSHIN
 echo ====================================================
