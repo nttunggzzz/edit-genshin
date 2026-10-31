@@ -123,6 +123,8 @@ class SingleJob:
     frame_color: str | None = None
     height: int = 1080
     watermark: str = ""
+    month_card: str = ""             # chữ khung thẻ tháng (nhập ngoài); rỗng = không vẽ khung
+    rolls_left: int | None = None    # số roll còn (nhập ngoài); None = không vẽ khung
     status: str = "logging_in"  # logging_in, waiting_captcha, fetching_data, rendering, done, error
     stage_message: str = "Trình duyệt đang khởi động và kết nối HoYoLAB..."
     captcha_link: str | None = None
@@ -348,6 +350,8 @@ def process_single_account_pipeline(
     check_action_requests: Callable[[], dict[str, bool]] | None = None,
     on_captcha_proof: Callable[[bytes], None] | None = None,
     profile_dir: Path | None = None,
+    month_card: str = "",
+    rolls_left: int | None = None,
 ) -> tuple[Path, str, str, str, str, Any, Any, list[str], list[str]]:
     """Lõi xử lý thống nhất cho 1 acc (dùng chung cho cả Ghép đơn và Ghép hàng loạt Excel):
     1. Đăng nhập ẩn danh mới (headless=False), đóng hẳn sau khi xong, không dùng profile Chrome cá nhân.
@@ -400,12 +404,13 @@ def process_single_account_pipeline(
     time.sleep(random.uniform(1.0, 5.0))
     extras = hoyolab.fetch_enka_extras(uid)
 
-    wish_counter, wish_lines = None, []
+    wish_counter, weapon_counter, wish_lines = None, None, []
     if cookies.cookie_token:
         time.sleep(random.uniform(1.0, 5.0))
         got = wish_mod.fetch_wish_history(uid, cookie_token=cookies.cookie_token)
         if got.records is not None:
             wish_counter = wish_mod.banner_counter(got.records)
+            weapon_counter = wish_mod.weapon_counter(got.records)
             wish_lines = [
                 f"Lịch sử roll ({got.source}, {len(got.records)} lượt):",
                 *("  " + t for t in wish_mod.summary_vi(got.records).splitlines())
@@ -420,10 +425,10 @@ def process_single_account_pipeline(
             "(lịch sử roll cần cookie này; các phần khác vẫn vẽ đủ)."
         ]
 
-    options = RenderOptions(code=code, uid=uid)
+    options = RenderOptions(code=code, uid=uid, month_card=month_card or None, rolls_left=rolls_left)
     sheet, report = hoyolab.build_sheet_from_data(
         index_data, list_data, work_dir, icons, enka_icons, extras, options,
-        wish_counter, wish_lines
+        wish_counter, wish_lines, weapon_wish=weapon_counter
     )
 
     # 3. Tập hợp nhân vật trong acc
@@ -533,6 +538,8 @@ def run_single_job_thread(job: SingleJob, state: WebState) -> None:
                 check_action_requests=_check_action_requests,
                 on_captcha_proof=_on_captcha_proof,
                 profile_dir=cdp_profile_dir,
+                month_card=job.month_card,
+                rolls_left=job.rolls_left,
             )
             job.uid = uid
             job.sheet = sheet
@@ -690,7 +697,7 @@ def setup_routes(app: web.Application) -> None:
     # Pages HTML
     app.router.add_get("/", handle_page_single)
     app.router.add_get("/single", handle_page_single)
-    app.router.add_get("/batch", handle_page_batch)
+    app.router.add_get("/batch", handle_batch_removed)
     app.router.add_get("/backgrounds", handle_page_backgrounds)
     app.router.add_get("/settings", handle_page_settings)
 
@@ -703,9 +710,9 @@ def setup_routes(app: web.Application) -> None:
     app.router.add_post("/api/jobs/{id}/fallback-web-captcha", handle_api_job_fallback_web)
 
     # API Batch
-    app.router.add_post("/api/batch", handle_api_batch)
-    app.router.add_get("/api/batch/{id}", handle_api_batch_status)
-    app.router.add_get("/api/batch/{id}/download-zip", handle_api_batch_zip)
+    app.router.add_post("/api/batch", handle_batch_removed)
+    app.router.add_get("/api/batch/{id}", handle_batch_removed)
+    app.router.add_get("/api/batch/{id}/download-zip", handle_batch_removed)
 
     # API Backgrounds
     app.router.add_get("/api/backgrounds", handle_api_bg_list)
@@ -767,6 +774,13 @@ async def handle_api_single(request: web.Request) -> web.Response:
     if not CODE_RE.match(code):
         return web.json_response({"error": f"Mã acc '{code}' không hợp lệ (yêu cầu 1-16 ký tự chữ, số, _, -, #)"}, status=400)
 
+    rolls_raw = body.get("rolls_left")
+    rolls_left: int | None = None
+    if rolls_raw is not None and str(rolls_raw).strip() != "":
+        if isinstance(rolls_raw, bool) or not re.fullmatch(r"\d{1,6}", str(rolls_raw).strip()):
+            return web.json_response({"error": "Số roll còn phải là số nguyên không âm (hoặc để trống)"}, status=400)
+        rolls_left = int(str(rolls_raw).strip())
+
     job_id = str(uuid.uuid4())
     job = SingleJob(
         id=job_id,
@@ -779,6 +793,8 @@ async def handle_api_single(request: web.Request) -> web.Response:
         frame_color=body.get("frame_color") or None,
         height=int(body.get("height") or 1080),
         watermark=str(body.get("watermark") or "").strip(),
+        month_card=str(body.get("month_card") or "").strip(),
+        rolls_left=rolls_left,
         status="waiting_browser",
         stage_message="Đang chờ bạn mở trình duyệt... Hãy bấm đúp file scripts/launch_cdp_browser.bat",
         browser_deadline=time.time() + 120.0,
@@ -848,6 +864,8 @@ def reroll_account_from_json(
     frame_color: str | None = None,
     height: int = 1080,
     watermark: str = "",
+    month_card: str = "",
+    rolls_left: int | None = None,
 ) -> tuple[Path, str, str, str, str]:
     """Vẽ lại ảnh thẻ từ file JSON đã lưu, không cào lại HoYoLAB, chỉ chọn nền trong acc."""
     data = json.loads(json_path.read_text(encoding="utf-8"))
@@ -877,7 +895,7 @@ def reroll_account_from_json(
     root = Path(__file__).resolve().parent.parent.parent
     icons = hoyolab.UrlIconCache(root / "icons" / "hoyolab")
     enka_icons = IconCache(root / "icons")
-    options = RenderOptions(code=code, uid=uid)
+    options = RenderOptions(code=code, uid=uid, month_card=month_card or None, rolls_left=rolls_left)
     sheet, report = hoyolab.build_sheet_from_data(
         index_data, list_data, work_dir, icons, enka_icons, extras, options,
         None, wish_lines
@@ -917,6 +935,8 @@ async def handle_api_job_reroll(request: web.Request) -> web.Response:
                 frame_color=job.frame_color,
                 height=job.height,
                 watermark=job.watermark,
+                month_card=job.month_card,
+                rolls_left=job.rolls_left,
             )
         elif job.sheet:
             new_bg_id, new_bg_desc = pick_background_for_acc(
@@ -980,6 +1000,16 @@ async def handle_api_job_fallback_web(request: web.Request) -> web.Response:
         "ok": True,
         "message": "Đã ghi nhận yêu cầu mở trang kéo Captcha dự phòng cổng 8766."
     })
+
+
+BATCH_REMOVED_MSG = "Đã bỏ chế độ hàng loạt, chỉ dùng Ghép đơn"
+
+
+async def handle_batch_removed(request: web.Request) -> web.Response:
+    """Chế độ hàng loạt (Excel) đã bỏ trên web: không đọc/xử lý file, chỉ trả thông báo."""
+    if request.path.startswith("/api/"):
+        return web.json_response({"error": BATCH_REMOVED_MSG}, status=410)
+    return web.Response(text=BATCH_REMOVED_MSG, status=410, content_type="text/plain", charset="utf-8")
 
 
 async def handle_api_batch(request: web.Request) -> web.Response:

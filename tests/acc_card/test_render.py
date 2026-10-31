@@ -74,8 +74,8 @@ def test_items_sorted_into_strip_order(sheet_factory):
                       items=[ItemKind.ACCOUNT_LINK, ItemKind.FATE, ItemKind.PORTRAIT, ItemKind.RESIN])
     sheet, base = load_sheet(d)
     from gacard.render import sorted_items
-    assert [i.kind for i in sorted_items(sheet)] == [ItemKind.PORTRAIT, ItemKind.RESIN,
-                                                    ItemKind.FATE, ItemKind.ACCOUNT_LINK]
+    assert [i.kind for i in sorted_items(sheet)] == [ItemKind.PORTRAIT, ItemKind.FATE,
+                                                    ItemKind.RESIN, ItemKind.ACCOUNT_LINK]
 
 
 def test_background_auto_pick_random_in_account_and_mark_used(sheet_factory, tmp_path):

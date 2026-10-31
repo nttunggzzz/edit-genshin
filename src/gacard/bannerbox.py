@@ -30,7 +30,8 @@ from gacard.uidmode import data_dir
 log = logging.getLogger(__name__)
 LANCZOS = Image.Resampling.LANCZOS
 
-KINDS = ("limited", "lech")
+KINDS = ("limited", "lech", "weapon", "roll", "monthcard")
+# weapon = ô banner vũ khí (cùng cấu trúc limited: ảnh + N); roll = khung số roll còn (N); monthcard = khung thẻ tháng (TEXT)
 MAX_TEMPLATE_PX = 4096
 FONT_KINDS = ("display", "bold", "extrabold")
 MIN_FONT = 10
@@ -117,8 +118,9 @@ def load_template(kind: str, directory: Path | None = None) -> Template:
     spec = json.loads((d / f"{kind}.json").read_text(encoding="utf-8"))
     image = _read_image(d, spec, f"{kind}.png")
     slots = _read_slots(spec, image.size)
-    if "N" not in slots:
-        raise ValueError("mẫu thiếu slot N")
+    need = "TEXT" if kind == "monthcard" else "N"
+    if need not in slots:
+        raise ValueError(f"mẫu thiếu slot {need}")
     if kind == "lech" and "TEN" not in slots:
         raise ValueError("mẫu lech thiếu slot TEN")
     t = Template(kind, image, slots, bool(spec.get("own_frame", True)), "file",
@@ -207,12 +209,43 @@ def _fallback_image() -> Image.Image:
     return img.resize(FB_SIZE, LANCZOS)
 
 
+def _fallback_box(size: tuple[int, int], bar_h: int, cream: bool = True) -> Image.Image:
+    """Khung tạm cho roll / thẻ tháng: cùng phong cách (viền gradient cam-hồng, nền kem / thanh xám)."""
+    ss = 2
+    w, h = size[0] * ss, size[1] * ss
+    f = FB_FRAME * ss
+    grad = Image.new("RGB", (w, h))
+    gd = ImageDraw.Draw(grad)
+    for y in range(h):
+        t = y / max(1, h - 1)
+        gd.line((0, y, w, y), fill=tuple(round(a + (b - a) * t) for a, b in zip(FB_FRAME_TOP, FB_FRAME_BOTTOM)))
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=6 * ss, fill=255)
+    img.paste(grad, (0, 0), mask)
+    d = ImageDraw.Draw(img)
+    d.rectangle((f, f, w - 1 - f, h - 1 - f), fill=(*FB_CREAM, 255))
+    if bar_h:
+        d.rectangle((f, h - f - bar_h * ss, w - 1 - f, h - 1 - f), fill=(*FB_BAR, 255))
+    return img.resize(size, LANCZOS)
+
+
 def fallback_template(kind: str) -> Template:
+    f = FB_FRAME
+    if kind == "roll":
+        size = (210, 150)
+        slot = Slot((f + 4, size[1] - f - 62, size[0] - f - 4, size[1] - f - 2), "display", 52, (78, 73, 82))
+        return Template(kind, _fallback_box(size, 66), {"N": slot}, own_frame=True, source="fallback")
+    if kind == "monthcard":
+        size = (420, 84)
+        slot = Slot((f + 10, f + 4, size[0] - f - 10, size[1] - f - 4), "display", 44, (255, 255, 255), "center",
+                    3, (47, 170, 238))
+        return Template(kind, _fallback_box(size, 0), {"TEXT": slot}, own_frame=True, source="fallback")
     img = _fallback_image()
     f = FB_FRAME
     inner = (FB_LABEL[0] + f + 6, f + 6, FB_LABEL[2] - f - 6, FB_BAR_TOP + f - 6)
     n_slot = Slot((190, FB_BAR_TOP + f + 6, 338, FB_SIZE[1] - f - 6), "display", 84, (78, 73, 82))
-    slots = {"N": n_slot}
+    slots = {"N": n_slot}          # kind weapon: như limited (ô ảnh vũ khí để trống)
     if kind == "lech":
         slots["TEN"] = Slot(inner, "bold", 52, (190, 110, 50), max_lines=2)
     else:
@@ -309,3 +342,10 @@ def choose_kind(last5: str | None, limited: bool | None) -> str:
     """Kiểu khung: 5★ gần nhất là nhân vật thường trú (lệch 50/50) → lech (điền tên + N); còn lại
     (giới hạn, hoặc chưa có 5★ nào) → limited (điền N, ảnh nhân vật nếu mẫu có ô ANH)."""
     return "lech" if last5 and not limited else "limited"
+
+
+def render_text_box(template: Template, text: str) -> Image.Image:
+    """Khung thẻ tháng: mẫu + đúng chữ người nhập vào slot TEXT (không sửa, không thêm tiền/hậu tố)."""
+    img = template.image.copy()
+    _draw_lines(img, template.slots["TEXT"], [text])
+    return img

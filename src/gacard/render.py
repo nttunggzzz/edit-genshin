@@ -16,8 +16,9 @@ from gacard.layout import Layout, LayoutSpec, compute_layout
 from gacard.models import AccountSheet, ItemKind, Piece, RenderOptions
 from gacard.theme import pick_theme
 
-ITEM_ORDER = [ItemKind.PORTRAIT, ItemKind.BANNER_COUNTER, ItemKind.RESIN,
-              ItemKind.FATE, ItemKind.OTHER, ItemKind.ACCOUNT_LINK]
+# thẻ tháng (PORTRAIT) rồi khung số roll (FATE) đứng cạnh nhau, sau đó tới ô banner (nhân vật, vũ khí)
+ITEM_ORDER = [ItemKind.PORTRAIT, ItemKind.FATE, ItemKind.BANNER_COUNTER, ItemKind.RESIN,
+              ItemKind.OTHER, ItemKind.ACCOUNT_LINK]
 
 
 class SheetError(Exception):
@@ -60,7 +61,7 @@ def format_code(code: str | None) -> str | None:
 
 
 def sorted_items(sheet: AccountSheet) -> list:
-    """Ô nhỏ theo thứ tự dải: portrait, banner_counter, resin, fate, other, account_link."""
+    """Ô nhỏ theo thứ tự dải: portrait, fate, banner_counter, resin, other, account_link."""
     return sorted(sheet.items, key=lambda it: ITEM_ORDER.index(it.kind))
 
 

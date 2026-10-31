@@ -969,11 +969,49 @@ def _add_banner_counter(sheet: AccountSheet, report: HoyolabReport, work_dir: Pa
         report.wish_lines.append(warning)
 
 
+def _add_weapon_banner(sheet: AccountSheet, report: HoyolabReport, work_dir: Path, wish: BannerCounter,
+                       templates: Path | None = None) -> None:
+    """Ô banner vũ khí: y hệt ô banner nhân vật, khung `weapon` (từ PSD "banner wp"), N = max(1, pity_vukhi // 5)."""
+    from gacard import bannerbox
+
+    template, warning = bannerbox.get_template("weapon", templates)
+    bannerbox.render_banner_box(template, wish.n).save(work_dir / "item_wp.png")
+    sheet.items.append(Item(image=Path("item_wp.png"), kind=ItemKind.BANNER_COUNTER, own_frame=template.own_frame))
+    report.wish_lines.append(f"Ô banner vũ khí: N = {wish.n} (pity banner vũ khí {wish.pity} // 5, tối thiểu 1); "
+                             f"khung weapon ({template.source}).")
+    if warning:
+        report.wish_lines.append(warning)
+
+
+def _add_input_frames(sheet: AccountSheet, report: HoyolabReport, work_dir: Path, options: RenderOptions | None,
+                      templates: Path | None = None) -> None:
+    """Khung thẻ tháng (chữ nhập ngoài) và khung số roll còn (số nhập ngoài). Trống/None → KHÔNG vẽ gì."""
+    from gacard import bannerbox
+
+    text = (options.month_card or "").strip() if options else ""
+    if text:
+        template, warning = bannerbox.get_template("monthcard", templates)
+        bannerbox.render_text_box(template, text).save(work_dir / "item_month.png")
+        # thẻ tháng là ô lớn (kind PORTRAIT: cao hơn các ô nhỏ) để chữ đủ đọc
+        sheet.items.append(Item(image=Path("item_month.png"), kind=ItemKind.PORTRAIT, own_frame=template.own_frame))
+        report.wish_lines.append(f"Khung thẻ tháng: \"{text}\" ({template.source}).")
+        if warning:
+            report.wish_lines.append(warning)
+    if options is not None and options.rolls_left is not None:
+        template, warning = bannerbox.get_template("roll", templates)
+        bannerbox.render_banner_box(template, options.rolls_left).save(work_dir / "item_roll.png")
+        sheet.items.append(Item(image=Path("item_roll.png"), kind=ItemKind.FATE, own_frame=template.own_frame))
+        report.wish_lines.append(f"Khung số roll còn: {options.rolls_left} ({template.source}).")
+        if warning:
+            report.wish_lines.append(warning)
+
+
 def build_sheet_from_data(index_data: dict, list_data: dict, work_dir: Path, icons: UrlIconCache,
                           enka_icons: IconCache | None = None, extras: EnkaExtras | None = None,
                           options: RenderOptions | None = None, wish: BannerCounter | None = None,
                           wish_lines: list[str] | None = None,
-                          banner_templates: Path | None = None) -> tuple[AccountSheet, HoyolabReport]:
+                          banner_templates: Path | None = None,
+                          weapon_wish: BannerCounter | None = None) -> tuple[AccountSheet, HoyolabReport]:
     """Hàm thuần (không gọi API): vẽ mảnh vào work_dir + sheet.json. Icon: URL HoYoLAB, hỏng thì icon
     cùng tên trong cache Enka, không có nữa thì ô thay thế. `extras` (Enka, cùng UID): Cấp Thế Giới
     và namecard cho ô hồ sơ; không có thì ô hồ sơ chỉ còn AR. `options`: tuỳ chọn render sẽ dùng (mã,
@@ -1040,6 +1078,9 @@ def build_sheet_from_data(index_data: dict, list_data: dict, work_dir: Path, ico
     report.wish_lines.extend(wish_lines or [])
     if wish is not None:
         _add_banner_counter(sheet, report, work_dir, wish, all_chars, icons, banner_templates)
+    if weapon_wish is not None:
+        _add_weapon_banner(sheet, report, work_dir, weapon_wish, banner_templates)
+    _add_input_frames(sheet, report, work_dir, options, banner_templates)
 
     for i, c in enumerate(chars):
         el_icon = None

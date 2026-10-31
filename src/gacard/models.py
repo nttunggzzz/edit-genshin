@@ -49,4 +49,6 @@ class RenderOptions(BaseModel):
     family: str = "auto"               # auto | right | left | wide
     frame_color: str | None = None     # "#RRGGBB"; None = cyan mặc định (hoặc GACARD_FRAME_COLOR); "auto" = theo nền
     watermark: str | None = None
+    month_card: str | None = None      # chữ khung thẻ tháng (nhập ngoài, vẽ nguyên văn); None/rỗng = không vẽ khung
+    rolls_left: int | None = None      # số roll còn (nhập ngoài, vẽ nguyên số); None = không vẽ khung
     height: int = 1080                 # 1080 hoặc 720; rộng = 16:9

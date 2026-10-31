@@ -50,7 +50,6 @@
 <body>
   <nav class="nav">
     <a href="/single" class="active">Ghép 1 Acc</a>
-    <a href="/batch">Ghép Hàng Loạt (Excel)</a>
     <a href="/backgrounds">Thư Viện Ảnh Nền</a>
     <a href="/settings">Cài Đặt Kiểu Edit</a>
   </nav>
@@ -153,6 +152,16 @@
           <div class="form-group">
             <label>Dòng chữ Watermark</label>
             <input type="text" id="watermark" placeholder="Để trống nếu không muốn chèn watermark">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>Thẻ tháng (tuỳ chọn)</label>
+              <input type="text" id="month_card" placeholder="Để trống = không vẽ khung. Vd: Còn 15 ngày">
+            </div>
+            <div class="form-group">
+              <label>Số roll còn (tuỳ chọn)</label>
+              <input type="number" id="rolls_left" min="0" step="1" placeholder="Để trống = không vẽ khung">
+            </div>
           </div>
         </div>
 
@@ -360,6 +369,8 @@
       const frame_color = document.getElementById('frame_color').value;
       const height = parseInt(document.getElementById('height').value) || 1080;
       const watermark = document.getElementById('watermark').value.trim();
+      const month_card = document.getElementById('month_card').value.trim();
+      const rolls_left = document.getElementById('rolls_left').value.trim();
 
       // Reset UI
       document.getElementById('resultBox').style.display = 'none';
@@ -375,7 +386,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             code, username, password, bg_mode, bg_character, bg_id,
-            frame_color, height, watermark
+            frame_color, height, watermark, month_card, rolls_left
           })
         });
         const data = await res.json();

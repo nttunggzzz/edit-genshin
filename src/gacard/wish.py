@@ -32,6 +32,7 @@ LOG_URL = "https://public-operation-hk4e-sg.hoyoverse.com/gacha_info/api/getGach
 GAME_BIZ = "hk4e_global"
 GACHA_TYPES = (301, 302, 200, 500)        # 301 = nhân vật (gồm 400), 302 = vũ khí, 200 = thường, 500 = biên niên
 CHARACTER_BANNER = 301
+WEAPON_BANNER = 302
 HARD_PITY = {301: 90, 302: 80, 200: 90, 500: 90}
 BANNER_NAMES = {301: "Banner nhân vật", 302: "Banner vũ khí", 200: "Banner thường", 500: "Banner biên niên"}
 PAGE_SIZE = 20
@@ -139,14 +140,26 @@ def compute_pity(records: list[dict]) -> dict[int, PityInfo]:
     return out
 
 
-def banner_counter(records: list[dict]) -> BannerCounter | None:
-    """Ô đếm từ pity banner nhân vật (301). Chưa roll banner nhân vật lần nào → None (không có ô)."""
-    info = compute_pity(records)[CHARACTER_BANNER]
+def banner_counter_for(records: list[dict], bucket: int) -> BannerCounter | None:
+    """Ô đếm từ pity của MỘT banner (301 nhân vật, 302 vũ khí); N = counter_number(pity của banner đó), không
+    cộng dồn giữa các banner. Chưa roll banner đó lần nào → None (không có ô)."""
+    info = compute_pity(records)[bucket]
     if info.total == 0:
         return None
     return BannerCounter(n=counter_number(info.pity), pity=info.pity, total=info.total,
                          last5_name=info.last5_name, last5_time=info.last5_time,
-                         limited=is_limited_5(info.last5_name) if info.last5_name else None)
+                         limited=is_limited_5(info.last5_name) if (info.last5_name and bucket == CHARACTER_BANNER)
+                         else None)
+
+
+def banner_counter(records: list[dict]) -> BannerCounter | None:
+    """Ô đếm từ pity banner nhân vật (301). Chưa roll banner nhân vật lần nào → None (không có ô)."""
+    return banner_counter_for(records, CHARACTER_BANNER)
+
+
+def weapon_counter(records: list[dict]) -> BannerCounter | None:
+    """Ô đếm banner vũ khí (302), cùng quy tắc N = max(1, pity // 5). Chưa roll banner vũ khí → None."""
+    return banner_counter_for(records, WEAPON_BANNER)
 
 
 # ------------------------------------------------------------------ lưu file
