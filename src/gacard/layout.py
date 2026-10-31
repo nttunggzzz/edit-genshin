@@ -11,6 +11,11 @@ canvas logic 1920×1080. Không vẽ gì ở đây nên test được không c�
   (một cột cao hết ảnh + các cột phụ phía trên vũ khí); mã acc góc trên phải; dòng UID ngay trên
   lưới vũ khí, canh trái theo nó (như right), vướng thì về góc trên trái. Đỉnh khung hồ sơ ngang
   đỉnh khung lưới nhân vật.
+  Hơn CHAR_SPLIT_THRESHOLD nhân vật: lưới nhân vật tách làm hai khối 5 cột (nửa đầu theo thứ tự đọc ở
+  mép trái, nửa sau ở mép phải, chia theo hàng: hàng lẻ → khối đầu nhiều hơn), cùng cỡ thẻ, canh đáy;
+  hồ sơ, dòng UID, ô nhỏ, vũ khí nằm giữa hai khối; panel (nếu có) sát cạnh trái khối phải.
+- Lưới vũ khí là dải ngang (nhiều cột, ít hàng): được dùng WEAPON_SPAN bề rộng vùng (wide tách đôi: hết
+  vùng giữa), chừa chỗ cột thẻ khám phá nếu có; ưu tiên ít hàng nhất mà thẻ chưa quá nhỏ (xem _weapon_plan).
 - Thẻ khám phá (nếu có): một cột cạnh lưới vũ khí ở phía trống (wide: phải; right: trái; left: phải),
   cách lưới một khoảng khối, đáy trùng đáy lưới vũ khí; không đủ chỗ thì bỏ thẻ cuối danh sách.
 
@@ -49,17 +54,22 @@ LINE_GAP = 6         # khoảng giữa các dòng chữ UID / dòng thêm
 
 CHAR_COLS = 5
 COLUMN_MAX = 525     # bề rộng tối đa cột nhân vật (s = 1); dep.psd: 523
+CHAR_SPLIT_THRESHOLD = 50    # > 50 nhân vật → hai khối nhân vật (mép trái + mép phải), xem _char_groups
+SPLIT_COLUMN_MAX = 380       # bề rộng tối đa mỗi khối khi tách đôi (chừa vùng giữa cho vũ khí)
 PROFILE_MAX = 525    # bề rộng tối đa ô hồ sơ khi không có lưới nhân vật cùng cột
 WEAPON_CELL_MAX = 100    # dep.psd: lưới 8 cột rộng 927 → ô ≈ 99
-DEFAULT_WEAPON_COLS = 8  # lưới cũ / dep.psd
-WEAPON_WIDEN = 0.48      # lưới vũ khí được nới thêm tối đa 48 % phần trống bên cạnh lưới 8 cột (chừa nền
-                         # + chỗ cho cột thẻ khám phá; chủ dự án: bớt 1 cột so với 0,65 → acc 887630784 9×3)
+DEFAULT_WEAPON_COLS = 8  # lưới cũ / dep.psd; ≤ 8 thẻ mới được nằm một hàng
+WEAPON_SPAN = 0.83       # lưới vũ khí dùng tối đa 83 % bề rộng vùng cạnh cột nhân vật (chủ dự án: dải ngang
+                         # tới x ≈ 1620 trên ảnh 50 nhân vật), phần còn lại để lộ nền
+WEAPON_MAX_H = 0.45      # wide: lưới vũ khí cao tối đa 45 % chiều cao vùng (right/left: 0,5 như cũ)
+EXPLORATION_RESERVE_W = 300  # có thẻ khám phá: chừa cột rộng ≈ 300 (s = 1) cạnh lưới vũ khí cho chúng
+WEAPON_KEEP_W = 0.6          # … nhưng không bóp vùng vũ khí dưới 60 % bề rộng (thiếu chỗ thì bỏ thẻ khám phá)
 EXPLORATION_ASPECT = 3.8     # rộng / cao thẻ khám phá (mặc định khi không có kích thước mảnh)
 EXPLORATION_MIN_H = 72       # thẻ khám phá không thấp hơn (s = 1); không vừa thì bỏ thẻ cuối danh sách
 EXPLORATION_MAX_H = 130
 EXPLORATION_MAX_W = 440
-WEAPON_CELL_MIN = 80     # nới thêm cột nhưng thẻ không nhỏ hơn ≈ 80 (mẫu chủ dự án: 80–100)
-WEAPON_CELL_ROOMY = 0.95 # chế độ HoYoLAB ưu tiên số thẻ cho lưới phủ bề rộng mà thẻ ≥ 95 % cỡ tối đa
+WEAPON_MIN_ASPECT = 2.5  # lưới "đẹp" phải là dải ngang: rộng ≥ 2,5 × cao
+WEAPON_CELL_MIN = 75     # thêm cột (bớt hàng) nhưng thẻ không nhỏ hơn ≈ 75 (hoặc 90 % thẻ lớn nhất khi chật)
 EMPTY_CELL_WEIGHT = 1.5  # ô trống ở hàng cuối xấu hơn khoảng nền trống cùng diện tích
 PANEL_MAX, PANEL_MIN = 380, 200
 ITEM_H = 100
@@ -189,8 +199,8 @@ class Layout:
                     out.append(f"{a.kind}#{a.index} sát/chồng {b.kind}#{b.index}")
         for grid, cell in (("characters", "character"), ("weapons", "weapon")):
             frames = self.of(grid)
-            for c in self.of(cell):
-                if frames and not _inside(c.rect, frames[0].rect):
+            for c in self.of(cell):            # lưới nhân vật có thể tách hai khối
+                if frames and not any(_inside(c.rect, f.rect) for f in frames):
                     out.append(f"{cell}#{c.index} nằm ngoài khung lưới")
         if spec is not None:
             expect = {"character": len(spec.characters), "weapon": len(spec.weapons),
@@ -199,8 +209,8 @@ class Layout:
             for kind, n in expect.items():
                 if len(self.of(kind)) != n:
                     out.append(f"thiếu {kind}: đặt {len(self.of(kind))}/{n}")
-            if len(self.of("exploration")) > len(spec.explorations):   # thẻ khám phá: được bỏ bớt
-                out.append("thừa exploration")
+            if self.of("weapon") and len(self.of("exploration")) != len(spec.explorations):   # đủ mọi thẻ khám phá
+                out.append(f"thiếu exploration: đặt {len(self.of('exploration'))}/{len(spec.explorations)}")
         return out
 
 
@@ -243,13 +253,13 @@ def compute_layout(spec: LayoutSpec, family: str = "auto") -> Layout:
 
 def weapon_grid_fit(spec: LayoutSpec, family: str = "auto") -> tuple[int, bool]:
     """(số cột, lưới "đẹp"?) mà bố cục chọn cho `spec` — để bên chọn vũ khí lấy đúng số thẻ cho hàng
-    cuối đủ. "Đẹp" = phủ hết bề rộng vùng VÀ thẻ gần cỡ tối đa (≥ WEAPON_CELL_ROOMY × WEAPON_CELL_MAX·s,
-    không thu nhỏ thẻ để nhét thêm cột). Không có vũ khí → (0, False). Một hàng: số cột = số thẻ."""
+    cuối đủ. "Đẹp" = dải ngang thật sự (WeaponPlan.good): phủ hết bề rộng dành cho vũ khí hoặc thẻ đã ở
+    cỡ tối đa, và rộng ≥ WEAPON_MIN_ASPECT × cao. Không có vũ khí → (0, False). Một hàng: số cột = số thẻ."""
     layout = compute_layout(spec, family)
     plan = layout.weapon_plan
     if not plan:
         return 0, False
-    return plan.cols, plan.fills and plan.cell >= WEAPON_CELL_ROOMY * WEAPON_CELL_MAX * layout.scale
+    return plan.cols, plan.good
 
 
 def weapon_columns(spec: LayoutSpec, family: str = "auto") -> int:
@@ -290,23 +300,35 @@ def _grid_dims(n: int, cols: int, cell_w: int, aspect: float, ratio: float) -> t
 
 
 def _grid_boxes(kind: str, cell_kind: str, x: int, y: int, n: int, cols: int,
-                cell_w: int, aspect: float, ratio: float) -> list[Box]:
+                cell_w: int, aspect: float, ratio: float, start: int = 0) -> list[Box]:
+    """Khung + n ô; chỉ số ô bắt đầu từ `start` (khối nhân vật thứ hai tiếp nối khối đầu)."""
     gw, gh, cell_h, cols = _grid_dims(n, cols, cell_w, aspect, ratio)
     gap = _cell_gap(cell_w, ratio)
-    boxes = [Box(kind, Rect(x, y, gw, gh))]
+    boxes = [Box(kind, Rect(x, y, gw, gh), start if start else None)]
     for i in range(n):
         r, c = divmod(i, cols)
         boxes.append(Box(cell_kind, Rect(x + PAD + c * (cell_w + gap),
-                                         y + PAD + r * (cell_h + gap), cell_w, cell_h), i))
+                                         y + PAD + r * (cell_h + gap), cell_w, cell_h), start + i))
     return boxes
+
+
+def _char_groups(n: int) -> list[int]:
+    """Số thẻ mỗi khối nhân vật: một khối, hoặc (> CHAR_SPLIT_THRESHOLD) hai khối chia theo hàng 5 thẻ —
+    khối đầu (nửa đầu thứ tự đọc) lấy ceil(số hàng / 2) hàng: 70 → 35 + 35, 65 → 35 + 30, 53 → 30 + 23."""
+    if n <= CHAR_SPLIT_THRESHOLD:
+        return [n] if n else []
+    first = min(n, math.ceil(math.ceil(n / CHAR_COLS) / 2) * CHAR_COLS)
+    return [first, n - first]
 
 
 @dataclass(frozen=True)
 class WeaponPlan:
-    """Lưới vũ khí đã chọn: số cột, rộng ô, và lưới có phủ hết bề rộng vùng không (`fills`)."""
+    """Lưới vũ khí đã chọn: số cột, rộng ô, lưới có phủ hết bề rộng dành cho nó không (`fills`), và
+    "đẹp" (`good`: phủ hết hoặc thẻ đã ở cỡ tối đa, và là dải ngang rộng ≥ WEAPON_MIN_ASPECT × cao)."""
     cols: int
     cell: int
     fills: bool
+    good: bool = False
 
 
 def _plain_cell(n: int, cols: int, width: float, max_h: float, cap: int, aspect: float) -> int:
@@ -314,23 +336,29 @@ def _plain_cell(n: int, cols: int, width: float, max_h: float, cap: int, aspect:
     return min(cap, _cell_for_width(width, cols, r), _cell_for_height(max_h, math.ceil(n / cols), aspect, r))
 
 
-def _weapon_plan(n: int, width: float, max_h: float, s: float, aspect: float) -> WeaponPlan | None:
-    """Chọn số cột lưới vũ khí: nới rộng hơn lưới 8 cột cũ một chút cho cân, KHÔNG kéo tới mép —
-    chừa nền bên cạnh để nhân vật trên nền vẫn nhìn rõ.
+def _weapon_limit(spec: LayoutSpec, s: float, g: int, avail: float, span: float) -> float:
+    """Bề rộng lưới vũ khí được dùng trong vùng rộng `avail`: span × avail; có thẻ khám phá thì chừa
+    thêm một cột g + EXPLORATION_RESERVE_W·s cho chúng (không bóp vùng vũ khí dưới WEAPON_KEEP_W)."""
+    limit = span * avail
+    if spec.explorations:
+        limit = min(limit, max(avail - g - EXPLORATION_RESERVE_W * s, WEAPON_KEEP_W * avail))
+    return max(0.0, limit)
 
-    Bề rộng được dùng tối đa: limit = g8 + WEAPON_WIDEN × (width − g8), g8 = rộng lưới 8 cột cũ.
+
+def _weapon_plan(n: int, limit: float, max_h: float, s: float, aspect: float) -> WeaponPlan | None:
+    """Chọn số cột lưới vũ khí trong bề rộng `limit`, cao ≤ max_h: dải ngang (nhiều cột, ít hàng).
+
     Mỗi số cột c (1…n): ô = min(WEAPON_CELL_MAX·s, vừa limit, vừa max_h). Chỉ xét ô ≥ ngưỡng
-    (WEAPON_CELL_MIN·s, hoặc 90 % ô lớn nhất khi chật). Ưu tiên: (1) hàng cuối đủ — phủ hết limit
-    (dư < nửa bước thẻ) trước, rồi ít hàng, rồi ô to; (2) không có cách nào đủ hàng (số thẻ cố định ở
-    chế độ ảnh chụp): diện tích trống ít nhất (khoảng dư trong limit + EMPTY_CELL_WEIGHT × ô trống ở
-    hàng cuối), rồi ít hàng, rồi ô to. Chế độ HoYoLAB chọn số thẻ để lưới vừa đủ hàng vừa phủ limit."""
+    (WEAPON_CELL_MIN·s, hoặc 90 % ô lớn nhất khi chật). "Đẹp" = (phủ hết limit — dư < nửa bước thẻ — hoặc
+    ô đã ở cỡ tối đa) VÀ rộng ≥ WEAPON_MIN_ASPECT × cao. Ưu tiên: (1) hàng cuối đủ + đẹp: ít hàng nhất
+    (> 8 thẻ thì tránh một hàng), rồi ô to — vd vùng 1190 px: 24 thẻ → 12×2, 30 → 10×3, 52 → 13×4;
+    (2) hàng cuối đủ nhưng không đẹp (số thẻ cố định ở chế độ ảnh chụp): ít hàng, ô to; (3) không cách nào đủ hàng: diện tích trống ít nhất (khoảng dư trong
+    limit + EMPTY_CELL_WEIGHT × ô trống ở hàng cuối), rồi ít hàng, rồi ô to. Chế độ HoYoLAB chọn số thẻ
+    (weapon_grid_fit) để lưới vừa đủ hàng vừa đẹp."""
     if n <= 0:
         return None
     r = WEAPON_GAP_RATIO
     cap = round(WEAPON_CELL_MAX * s)
-    c8 = min(n, DEFAULT_WEAPON_COLS)
-    g8 = _grid_dims(n, c8, max(1, _plain_cell(n, c8, width, max_h, cap, aspect)), aspect, r)[0]
-    limit = min(width, g8 + WEAPON_WIDEN * max(0, width - g8))
     opts = []
     for c in range(1, n + 1):
         rows = math.ceil(n / c)
@@ -342,19 +370,23 @@ def _weapon_plan(n: int, width: float, max_h: float, s: float, aspect: float) ->
         fills = side < (cell + _cell_gap(cell, r)) / 2
         empty = rows * c - n
         waste = side * gh + EMPTY_CELL_WEIGHT * empty * cell * cell_h
-        opts.append((c, rows, cell, fills, empty, waste))
+        good = (fills or cell >= cap) and gw >= WEAPON_MIN_ASPECT * gh
+        opts.append((c, rows, cell, fills, good, empty, waste))
     if not opts:
         return None
     best = max(o[2] for o in opts)
     floor = min(round(WEAPON_CELL_MIN * s), round(0.9 * best))
     ok = [o for o in opts if o[2] >= floor]
+    min_rows = 1 if n <= DEFAULT_WEAPON_COLS else 2
 
     def key(o):
-        c, rows, cell, fills, empty, waste = o
-        return (0, not fills, rows, -cell) if empty == 0 else (1, waste, rows, -cell)
+        c, rows, cell, fills, good, empty, waste = o
+        if empty == 0:
+            return (0 if good else 1, rows < min_rows, rows, -cell)
+        return (2, waste, rows, -cell)
 
-    c, _, cell, fills, _, _ = min(ok, key=key)
-    return WeaponPlan(c, cell, fills)
+    c, _, cell, fills, good, _, _ = min(ok, key=key)
+    return WeaponPlan(c, cell, fills, good)
 
 
 def _cell_for_width(width: float, cols: int, ratio: float) -> int:
@@ -537,7 +569,10 @@ def _baseline(spec: LayoutSpec, sp: Spacing) -> int:
 
 def _build(spec: LayoutSpec, family: str, s: float, sp: Spacing = Spacing()) -> Layout | None:
     if family == "wide":
-        return _build_wide(spec, s, sp)
+        layout = _build_wide(spec, s, sp)
+        if layout is not None and spec.subject_side == "left" and len(layout.of("characters")) == 1:
+            layout.boxes = _mirror(layout.boxes)       # nhân vật nền bên trái → khối dồn sang phải
+        return layout
     layout = _build_right(spec, s, sp)
     if layout is not None and family == "left":
         layout.boxes = _mirror(layout.boxes)
@@ -609,10 +644,11 @@ def _main_column(spec: LayoutSpec, s: float, sp: Spacing, top: int, bottom: int,
 
 
 def _weapons_grid(spec: LayoutSpec, s: float, x0: int, x1: int, bottom: int, max_h: float,
-                  align: str) -> tuple[list[Box], WeaponPlan | None]:
-    """Lưới vũ khí canh đáy tại `bottom`, trải trong [x0, x1] (số cột theo _weapon_plan)."""
+                  align: str, limit: float) -> tuple[list[Box], WeaponPlan | None]:
+    """Lưới vũ khí canh đáy tại `bottom`, rộng ≤ `limit`, canh `align` trong [x0, x1] (số cột theo
+    _weapon_plan)."""
     wa = _aspect(spec.weapons)
-    plan = _weapon_plan(len(spec.weapons), x1 - x0, max_h, s, wa)
+    plan = _weapon_plan(len(spec.weapons), min(limit, x1 - x0), max_h, s, wa)
     if plan is None:
         return [], None
     n, r = len(spec.weapons), WEAPON_GAP_RATIO
@@ -654,6 +690,78 @@ def _exploration_stack(spec: LayoutSpec, s: float, g: int, grid: Rect | None, lo
     return boxes
 
 
+def _exploration_above(spec: LayoutSpec, s: float, g: int, grid: Rect | None, x1: int, top: int,
+                       obstacles: list[Rect]) -> list[Box]:
+    """Wide tách đôi (vùng giữa hẹp, vũ khí dùng hết bề rộng): cột thẻ khám phá canh phải tại `x1`, ngay
+    trên lưới vũ khí (đáy cột cách đỉnh lưới g), xếp lên trên tới `top` / tới khối chữ hoặc ô đang chắn;
+    rộng EXPLORATION_RESERVE_W·s, giữ tỉ lệ mảnh. Không đủ chỗ thì bỏ thẻ cuối danh sách."""
+    if not spec.explorations or grid is None:
+        return []
+    aspect = _aspect(spec.explorations, EXPLORATION_ASPECT)
+    w = min(round(EXPLORATION_RESERVE_W * s), round(EXPLORATION_MAX_W * s), x1 - grid.x)
+    h = min(math.floor(w / aspect), round(EXPLORATION_MAX_H * s))
+    if h < round(EXPLORATION_MIN_H * s):
+        return []
+    w = min(w, round(h * aspect))
+    x, bottom = x1 - w, grid.y - g
+    lim = max([top] + [o.bottom + g for o in obstacles if o.x < x + w + g and o.right + g > x and o.y < bottom])
+    k = min(len(spec.explorations), (bottom - lim + g) // (h + g))
+    y = bottom - (k * h + (k - 1) * g)
+    return [Box("exploration", Rect(x, y + i * (h + g), w, h), i) for i in range(max(0, k))]
+
+
+def _exploration_row(spec: LayoutSpec, s: float, g: int, grid: Rect | None, x_lo: int, x_hi: int,
+                     top: int, obstacles: list[Rect]) -> list[Box]:
+    """Dải ngang thẻ khám phá ngay TRÊN lưới vũ khí (đáy dải cách đỉnh lưới g), canh phải tại `x_hi`,
+    xếp từng hàng lên trên tới `top`; mỗi hàng dừng trước khối đang chắn (`obstacles`: dòng UID, dải ô
+    nhỏ, hồ sơ...). Thử rộng thẻ lớn → nhỏ (≥ 0,75 cỡ tối thiểu) tới khi VỪA ĐỦ mọi thẻ; không vừa thì
+    trả bản nhiều thẻ nhất của cỡ nhỏ nhất (bên gọi coi là thiếu → giảm tỉ lệ)."""
+    n = len(spec.explorations)
+    if not n or grid is None:
+        return []
+    aspect = _aspect(spec.explorations, EXPLORATION_ASPECT)
+    w_max = min(round(EXPLORATION_RESERVE_W * s), x_hi - x_lo)     # dải mỏng: không che nền nhiều
+    w_min = round(EXPLORATION_MIN_H * s * aspect * 0.75)
+    best: list[Box] = []
+    best_key = (math.inf, 0)
+    w = w_max
+    while w >= w_min:
+        h = math.floor(w / aspect)
+        boxes: list[Box] = []
+        bottom = grid.y - g
+        rows = 0
+        while len(boxes) < n and bottom - h >= top:
+            y = bottom - h
+            left = max([x_lo] + [o.right + g for o in obstacles
+                                 if o.y < bottom + g and o.bottom + g > y and o.x < x_hi and o.right > x_lo])
+            cols = max(0, (x_hi - left + g) // (w + g))
+            take = min(cols, n - len(boxes))
+            if take:
+                x = x_hi - (take * w + (take - 1) * g)
+                boxes += [Box("exploration", Rect(x + i * (w + g), y, w, h), len(boxes) + i) for i in range(take)]
+                rows += 1
+            bottom = y - g
+        if len(boxes) == n and (rows, -w) < best_key:       # đủ thẻ: ít hàng nhất, rồi thẻ to nhất
+            best, best_key = boxes, (rows, -w)
+        elif len(boxes) < n and best_key[0] == math.inf and len(boxes) > len(best):
+            best = boxes
+        w -= max(6, w // 12)
+    return best
+
+
+def _place_explorations(spec: LayoutSpec, s: float, g: int, grid: Rect | None, lo: int, hi: int,
+                        side: str, top: int, obstacles: list[Rect]) -> list[Box]:
+    """Thẻ khám phá (phải vẽ ĐỦ): cột cạnh lưới vũ khí nếu đủ chỗ cho mọi thẻ; thiếu chỗ thì dải ngang
+    phía trên khối vũ khí (_exploration_row)."""
+    if not spec.explorations or grid is None:
+        return []
+    stack = _exploration_stack(spec, s, g, grid, lo, hi, side)
+    if len(stack) == len(spec.explorations):
+        return stack
+    row = _exploration_row(spec, s, g, grid, min(lo, grid.x), max(hi, grid.right), top, obstacles)
+    return row if len(row) >= len(stack) else stack
+
+
 def _build_right(spec: LayoutSpec, s: float, sp: Spacing) -> Layout | None:
     m, g = sp.margin, sp.gap
     base = _baseline(spec, sp)
@@ -668,14 +776,17 @@ def _build_right(spec: LayoutSpec, s: float, sp: Spacing) -> Layout | None:
         x0 = m + pw + g if spec.panels else m
         if x1 - x0 < 200:
             continue
-        weapons, plan = _weapons_grid(spec, s, x0, x1, base, (base - m) * 0.5, "right")
+        weapons, plan = _weapons_grid(spec, s, x0, x1, base, (base - m) * 0.5, "right",
+                                      _weapon_limit(spec, s, g, x1 - x0, WEAPON_SPAN))
         if spec.weapons and not weapons:
             continue
         w_rect = weapons[0].rect if weapons else None
         upper = _place_strip_and_text(spec, s, sp, x0, x1, base, w_rect,
                                       [b.rect for b in main + texts])
         # cột phải là cột chính → thẻ khám phá ở phía trống còn lại (trái lưới; left: gương → phải)
-        boxes = main + weapons + upper + _exploration_stack(spec, s, g, w_rect, x0, x1, "left")
+        explore = _place_explorations(spec, s, g, w_rect, x0, x1, "left", m,
+                                      [b.rect for b in main + texts + upper])
+        boxes = main + weapons + upper + explore
         if spec.panels:
             a_top = code_bottom + g if spec.code else m
             col_a = Rect(m, a_top, pw, base - a_top)
@@ -685,6 +796,10 @@ def _build_right(spec: LayoutSpec, s: float, sp: Spacing) -> Layout | None:
             # cột B (cạnh cột chính) xuống tới khối thấp nhất phía dưới nó: chữ/ô nhỏ hoặc vũ khí
             bx = x1 - pw
             below = [b.rect.y for b in upper if b.rect.right + g > bx and b.rect.x < x1 + g]
+            if any(b.kind == "item" and b.rect.right + g > bx and b.rect.x < x1 + g for b in upper):
+                # left = gương giữ thứ tự dải ô nhỏ → ô cao có thể đổi chỗ: tránh cả dải
+                below += [b.rect.y for b in upper if b.kind == "item"]
+            below += [b.rect.y for b in explore if b.rect.right + g > bx and b.rect.x < x1 + g]
             b_bottom = min(below + [w_rect.y if w_rect else base + g]) - g
             col_b = Rect(bx, b_top, pw, b_bottom - b_top)
             columns = [col_a] + ([col_b] if col_b.x >= x0 and col_b.h > 0 else [])
@@ -697,15 +812,23 @@ def _build_right(spec: LayoutSpec, s: float, sp: Spacing) -> Layout | None:
 
 
 def _build_wide(spec: LayoutSpec, s: float, sp: Spacing) -> Layout | None:
-    """Dòng UID ưu tiên ngay trên lưới vũ khí, canh trái theo nó (như dep.psd); vướng thì góc trên trái."""
-    if spec.weapons and _text_block(spec, s):
-        layout = _build_wide_at(spec, s, sp, uid_above_weapons=True)
-        if layout is not None and not layout.problems(spec):
-            return layout
-    return _build_wide_at(spec, s, sp, uid_above_weapons=False)
+    """Dòng UID ưu tiên ngay trên lưới vũ khí, canh trái theo nó (như dep.psd); vướng thì góc trên trái.
+    > CHAR_SPLIT_THRESHOLD nhân vật: ưu tiên hai khối nhân vật; không vừa ở tỉ lệ này (vd quá nhiều panel
+    ở vùng giữa) thì thử một cột như cũ, vẫn không vừa thì trả bản tách đôi (bên gọi giảm tỉ lệ)."""
+    first: Layout | None = None
+    for split in ([True, False] if len(spec.characters) > CHAR_SPLIT_THRESHOLD else [False]):
+        tries = [True, False] if spec.weapons and _text_block(spec, s) else [False]
+        for uid_above in tries:
+            layout = _build_wide_at(spec, s, sp, uid_above_weapons=uid_above, split=split)
+            if layout is not None and not layout.problems(spec):
+                return layout
+            if not uid_above and first is None:
+                first = layout
+    return first
 
 
-def _build_wide_at(spec: LayoutSpec, s: float, sp: Spacing, uid_above_weapons: bool) -> Layout | None:
+def _build_wide_at(spec: LayoutSpec, s: float, sp: Spacing, uid_above_weapons: bool,
+                   split: bool = True) -> Layout | None:
     m, g = sp.margin, sp.gap
     base = _baseline(spec, sp)
     texts, code_bottom = _code_and_watermark(spec, "right", sp)
@@ -715,18 +838,29 @@ def _build_wide_at(spec: LayoutSpec, s: float, sp: Spacing, uid_above_weapons: b
         texts += _stack_text(lines, m - TEXT_STROKE, CODE_Y)
     chars_top = max(m, CODE_Y + th + g) if lines and not uid_above_weapons else m
 
-    chars: list[Box] = []
+    chars: list[Box] = []          # khối nhân vật trái (cả lưới nếu không tách)
+    chars_b: list[Box] = []        # khối phải khi tách đôi (nửa sau thứ tự đọc)
     n = len(spec.characters)
-    if n:
+    groups = _char_groups(n) if split else ([n] if n else [])
+    if groups:
         ca = _aspect(spec.characters)
-        rows = math.ceil(n / CHAR_COLS)
+        rows = math.ceil(groups[0] / CHAR_COLS)
         r = CHAR_GAP_RATIO
-        cell = min(_cell_for_width(COLUMN_MAX * s, CHAR_COLS, r),
-                   _cell_for_height(base - chars_top, rows, ca, r))
+        split = len(groups) == 2
+        top = chars_top
+        if split and spec.code:        # khối phải nằm dưới mã acc ở góc trên phải
+            top = max(top, code_bottom + g)
+        cell = min(_cell_for_width((SPLIT_COLUMN_MAX if split else COLUMN_MAX) * s, CHAR_COLS, r),
+                   _cell_for_height(base - top, rows, ca, r))
         if cell >= 8:
-            _, gh, _, _ = _grid_dims(n, CHAR_COLS, cell, ca, r)
-            chars = _grid_boxes("characters", "character", m, base - gh, n, CHAR_COLS, cell, ca, r)
+            _, gh, _, _ = _grid_dims(groups[0], CHAR_COLS, cell, ca, r)
+            chars = _grid_boxes("characters", "character", m, base - gh, groups[0], CHAR_COLS, cell, ca, r)
+            if split:
+                gw2, gh2, _, _ = _grid_dims(groups[1], CHAR_COLS, cell, ca, r)
+                chars_b = _grid_boxes("characters", "character", W - m - gw2, base - gh2, groups[1],
+                                      CHAR_COLS, cell, ca, r, start=groups[0])
     x0 = chars[0].rect.right + g if chars else m
+    right_edge = chars_b[0].rect.x - g if chars_b else W - m   # mép phải vùng giữa
     line_boxes = [b.rect for b in texts if b.kind in ("uid", "extra")]
     text_right = max((r.right for r in line_boxes), default=0)
     text_bottom = max((r.bottom for r in line_boxes), default=0)
@@ -737,12 +871,17 @@ def _build_wide_at(spec: LayoutSpec, s: float, sp: Spacing, uid_above_weapons: b
 
     widths = _panel_widths(s) if spec.panels else [0]
     for pw in widths:
-        a_top = code_bottom + g if spec.code else m
-        col_a = Rect(W - m - pw, a_top, pw, base - a_top)
-        x1 = col_a.x - g if spec.panels else W - m
+        a_top = code_bottom + g if spec.code and not chars_b else m
+        col_a = Rect(right_edge - pw, a_top, pw, base - a_top)
+        x1 = col_a.x - g if spec.panels else right_edge
         if x1 - x0 < 300:
             continue
-        weapons, plan = _weapons_grid(spec, s, x0, x1, base, (base - m) * 0.45, "left")
+        if chars_b:      # vùng giữa hai khối nhân vật: vũ khí dùng hết bề rộng, ở giữa (thẻ khám phá lên trên)
+            weapons, plan = _weapons_grid(spec, s, x0, x1, base, (base - m) * WEAPON_MAX_H, "center",
+                                          x1 - x0)
+        else:
+            weapons, plan = _weapons_grid(spec, s, x0, x1, base, (base - m) * WEAPON_MAX_H, "left",
+                                          _weapon_limit(spec, s, g, x1 - x0, WEAPON_SPAN))
         if spec.weapons and not weapons:
             continue
         w_top = weapons[0].rect.y if weapons else base + g
@@ -789,8 +928,21 @@ def _build_wide_at(spec: LayoutSpec, s: float, sp: Spacing, uid_above_weapons: b
             strip = _strip(spec, s, x0, x1, upper_bottom, "left", sp.item_gap)
         left_right = max((b.rect.right for b in profile + strip), default=x0 - g)
         w_rect = weapons[0].rect if weapons else None
-        boxes = chars + weapons + profile + strip + _exploration_stack(spec, s, g, w_rect, x0, x1, "right")
+        if chars_b:
+            busy = [b.rect for b in texts + uid_boxes + profile + strip]
+            explore = _exploration_above(spec, s, g, w_rect, x1, m, busy)
+            if len(explore) < len(spec.explorations):
+                row = _exploration_row(spec, s, g, w_rect, x0, x1, m, busy + [b.rect for b in chars_b])
+                explore = row if len(row) >= len(explore) else explore
+        else:
+            busy = [b.rect for b in texts + uid_boxes + profile + strip + chars]
+            explore = _place_explorations(spec, s, g, w_rect, x0, x1, "right", m, busy)
+        boxes = chars + chars_b + weapons + profile + strip + explore
         if spec.panels:
+            def bottom_at(cx: int, width: int, _old=bottom_at) -> int:      # panel dừng trên thẻ khám phá
+                lim = _old(cx, width)
+                return min([lim] + [b.rect.y - g for b in explore
+                                    if cx < b.rect.right + g and cx + width > b.rect.x - g])
             columns = [col_a]
             cx = col_a.x - g - pw
             while cx >= left_right + g:

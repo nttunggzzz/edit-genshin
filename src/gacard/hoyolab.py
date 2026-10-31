@@ -693,16 +693,20 @@ def strong_character(c: HoyoChar) -> bool:
 
 
 def select_characters(chars: list[HoyoChar]) -> list[HoyoChar]:
-    """Giữ hết 5★ + 4★ mạnh (strong_character), không giới hạn số lượng; hàng cuối lưới 5 cột luôn đủ:
-    lấp bằng 4★ kế tiếp (cung mệnh ↓, cấp ↓), hết 4★ thì bỏ thẻ yếu nhất. Trả về theo thứ tự game."""
+    """Chủ yếu 5★: giữ HẾT 5★ (không bao giờ bỏ). Chỉ thêm 4★ khi cần lấp đủ hàng cuối của lưới 5 cột
+    (5★ chia 5 dư 3 → thêm đúng 2 thẻ 4★), chọn 4★ mạnh nhất (cung mệnh ↓, cấp ↓, avatar_id ↑); không
+    thêm 4★ nào ngoài số cần để lấp. 5★ chia hết 5 (hoặc ≤ 5, một hàng) thì không thêm 4★. Không đủ 4★
+    để lấp thì không thêm (không bỏ 5★). Không có trần: > 50 thẻ thì bố cục tách hai khối cân bằng.
+    Trả về theo thứ tự game."""
     fives = [c for c in chars if (c.rarity or 0) >= 5]
     fours = sorted((c for c in chars if (c.rarity or 0) < 5),
                    key=lambda c: (-(c.constellation or 0), -(c.level or 0), c.avatar_id))
-    base = fives + [c for c in fours if strong_character(c)]
-    spare = [c for c in fours if not strong_character(c)]
-    weakest = lambda c: (min(c.rarity or 0, 5), c.constellation or 0, c.level or 0, -c.avatar_id)  # noqa: E731
-    ok = lambda t: t <= CHAR_COLS or t % CHAR_COLS == 0  # noqa: E731
-    return sorted(_complete_rows(base, spare, ok, weakest), key=_char_sort_key)
+    take: list[HoyoChar] = []
+    if len(fives) > CHAR_COLS and len(fives) % CHAR_COLS:
+        up = CHAR_COLS - len(fives) % CHAR_COLS                    # số thẻ thiếu để đủ hàng
+        if len(fours) >= up:
+            take = fours[:up]
+    return sorted(fives + take, key=_char_sort_key)
 
 
 # ------------------------------------------------------------------ khám phá bản đồ
@@ -902,8 +906,8 @@ class HoyolabReport:
         if total > len(self.characters):
             n4 = len(self.characters) - self.characters_5
             lines.append(f"Đã vẽ {len(self.characters)}/{total} nhân vật ({self.characters_5}×5★ + {n4}×4★: "
-                         f"hết 5★, 4★ cấp ≥ {STRONG_CHAR_LEVEL} hoặc C ≥ {STRONG_CHAR_CONS}, lấp/bớt cho hàng "
-                         f"cuối đủ 5); bỏ {total - len(self.characters)} nhân vật yếu.")
+                         f"giữ hết 5★, chỉ thêm 4★ mạnh nhất (cung ↓, cấp ↓) khi cần lấp đủ hàng 5); "
+                         f"bỏ {total - len(self.characters)} nhân vật 4★.")
         if self.avatar_number is not None and self.avatar_number != total:
             lines.append(f"Lưu ý: index báo {self.avatar_number} nhân vật nhưng danh sách có {total}.")
         by = " + ".join(f"{self.weapon_rarity[r]}×{r}★" for r in sorted(self.weapon_rarity, reverse=True))

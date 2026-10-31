@@ -2,10 +2,11 @@ import random
 
 import pytest
 
-from gacard.layout import (BLOCK_KINDS, CHAR_GAP_RATIO, CODE_ABOVE_PROFILE, CODE_Y, EXPLORATION_MIN_H, FRAME_WIDTH,
+from gacard.layout import (BLOCK_KINDS, CHAR_GAP_RATIO, CHAR_SPLIT_THRESHOLD, CODE_ABOVE_PROFILE, CODE_Y,
+                           EXPLORATION_MIN_H, FRAME_WIDTH,
                            GAP, ITEM_H, MARGIN, PAD, PROFILE_GAP, SPACING_TIERS, TEXT_STROKE, UID_ABOVE, H,
-                           LayoutSpec, W, WEAPON_CELL_MAX, WEAPON_GAP_RATIO, WEAPON_WIDEN, _weapon_plan,
-                           choose_family, compute_layout, weapon_columns, weapon_grid_fit)
+                           LayoutSpec, W, WEAPON_CELL_MAX, WEAPON_GAP_RATIO, WEAPON_MIN_ASPECT, WEAPON_SPAN,
+                           _char_groups, _weapon_plan, choose_family, compute_layout, weapon_columns, weapon_grid_fit)
 
 CARD = (140, 170)
 EXPLORE = (760, 200)     # mảnh thẻ khám phá HoYoLAB
@@ -16,7 +17,7 @@ def _spec(rng: random.Random, **over) -> LayoutSpec:
     items = [rng.choice([(100, 120), (170, 96), (240, 90), (180, 230)]) for _ in range(n_items)]
     spec = LayoutSpec(
         profile=(600, 222) if rng.random() < 0.85 else None,
-        characters=[CARD] * rng.choice([0, 3, 8, 10, 25, 30, 31, 40, 45]),
+        characters=[CARD] * rng.choice([0, 3, 8, 10, 25, 30, 31, 40, 45, 50, 51, 53, 65, 70, 100]),
         weapons=[CARD] * rng.choice([0, 5, 16, 24, 25, 32, 48, 70]),
         panels=[(420, 70 + 75 * rng.choice([1, 1, 2, 3])) for _ in range(rng.choice([0, 1, 3, 6, 8, 9, 11, 14, 16]))],
         items=items,
@@ -90,13 +91,15 @@ def test_character_grid_has_five_columns(n_chars, rows):
     assert frame.bottom <= H - MARGIN
 
 
-@pytest.mark.parametrize("n,cols", [(16, 8), (24, 8), (32, 8), (33, 9), (48, 10)])
+@pytest.mark.parametrize("n,cols", [(16, 8), (24, 8), (32, 8), (33, 11), (48, 12)])
 def test_weapon_grid_columns(n, cols):
-    # số thẻ cố định: ưu tiên số cột cho hàng cuối đủ (16/24/32 → 8), nới thêm cột khi đủ hàng được;
-    # WEAPON_WIDEN 0,48 (bớt một cột cho cột thẻ khám phá): 33 / 48 không còn chia hết mà vừa → ít ô trống nhất
+    # số thẻ cố định: hàng cuối đủ trước (16/24/32 → 8); 33 = 11×3, 48 = 12×4 — dải ngang phủ vùng vũ khí
     spec = LayoutSpec(profile=(600, 222), characters=[CARD] * 25, weapons=[CARD] * n)
     layout = compute_layout(spec)
     assert _cols(layout.of("weapon")) == cols == weapon_columns(spec) == layout.weapon_plan.cols
+    if n in (16, 33, 48):                                            # lưới "đẹp" là dải ngang
+        grid = layout.of("weapons")[0].rect
+        assert layout.weapon_plan.good and grid.w >= WEAPON_MIN_ASPECT * grid.h
 
 
 def _hoyolab_like(n_weapons: int) -> LayoutSpec:
@@ -105,33 +108,46 @@ def _hoyolab_like(n_weapons: int) -> LayoutSpec:
                       code="#1116", uid_line="CHECK BUILD UID 887630784", watermark="@sora kiwi")
 
 
-def test_weapon_grid_uses_free_width_but_keeps_background_clear():
-    spec = _hoyolab_like(30)
+@pytest.mark.parametrize("n", [30, 36, 52])
+def test_weapon_grid_uses_free_width_but_keeps_background_clear(n):
+    # chủ dự án (ảnh 50 nhân vật): vũ khí là dải ngang kéo tới x ≈ 1620, không kéo tới mép phải
+    spec = _hoyolab_like(n)
     layout = compute_layout(spec)
     assert layout.family == "wide" and layout.problems(spec) == []
     grid = layout.of("weapons")[0].rect
     chars = layout.of("characters")[0].rect
     cells = layout.of("weapon")
     cols = _cols(cells)
-    assert cols > 8 and len(cells) % cols == 0                       # rộng hơn lưới 8 cột cũ, hàng đủ
-    assert all(80 <= b.rect.w <= WEAPON_CELL_MAX for b in cells)
+    assert cols >= 10 and len(cells) % cols == 0 and len({b.rect.y for b in cells}) <= 4
+    assert all(70 <= b.rect.w <= WEAPON_CELL_MAX for b in cells)
     free = W - layout.margin - (chars.right + layout.gap)
-    old8 = 2 * PAD + 8 * cells[0].rect.w + 7 * round(cells[0].rect.w * WEAPON_GAP_RATIO)
-    assert grid.w > old8                                             # nới rộng ra
-    assert grid.w <= old8 + WEAPON_WIDEN * (free - old8) + cells[0].rect.w   # không kéo tới mép
-    assert W - layout.margin - grid.right > 150                      # chừa nền bên phải
-    assert layout.weapon_plan.fills
+    assert 0.75 * free <= grid.w <= WEAPON_SPAN * free                # phủ gần hết phần được dùng
+    assert 1550 <= grid.right <= 1680 and W - layout.margin - grid.right > 150   # chừa nền bên phải
+    assert grid.w >= WEAPON_MIN_ASPECT * grid.h and layout.weapon_plan.good
 
 
-def test_hoyolab_887630784_weapons_are_9x3_full_size():
-    # chủ dự án gạch cột cuối của lưới 10×3: lưới 9 cột, 27 thẻ đủ hàng, thẻ gần cỡ tối đa
-    spec = _hoyolab_like(27)
-    layout = compute_layout(spec)
+@pytest.mark.parametrize("n,cols,rows", [(16, 8, 2), (20, 10, 2), (24, 12, 2), (36, 12, 3)])
+def test_few_weapons_make_a_wide_strip(n, cols, rows):
+    # ít vũ khí → 2–3 hàng kéo ngang (rộng ≥ 3 × cao), không thành khối vuông
+    spec = _hoyolab_like(n)
+    layout = compute_layout(spec, "wide")
     assert layout.problems(spec) == []
+    grid = layout.of("weapons")[0].rect
     cells = layout.of("weapon")
-    assert _cols(cells) == 9 and len(cells) == 27 and len({b.rect.y for b in cells}) == 3
-    assert weapon_grid_fit(spec) == (9, True)
-    assert weapon_grid_fit(_hoyolab_like(30)) == (10, False)   # 10×3 được nhưng thẻ bị thu nhỏ → không "đẹp"
+    assert (_cols(cells), len({b.rect.y for b in cells})) == (cols, rows)
+    assert grid.w >= 3 * grid.h
+
+
+def test_weapon_grid_fit_marks_wide_strips_as_good():
+    # 27 = 9×3, 30 = 10×3 thẻ cỡ tối đa: dải ngang → "đẹp"; 32 cố định ở right → 8×4 khối vuông → không
+    # "đẹp" (bên chọn vũ khí lấp lên / bớt xuống cho đủ hàng và đẹp)
+    for n, cols in ((27, 9), (30, 10)):
+        spec = _hoyolab_like(n)
+        layout = compute_layout(spec)
+        cells = layout.of("weapon")
+        assert layout.problems(spec) == [] and _cols(cells) == cols and len({b.rect.y for b in cells}) == 3
+        assert weapon_grid_fit(spec) == (cols, True)
+    assert weapon_grid_fit(LayoutSpec(profile=(600, 222), characters=[CARD] * 25, weapons=[CARD] * 32)) == (8, False)
 
 
 def test_wide_profile_frame_top_level_with_character_grid():
@@ -152,7 +168,7 @@ def _explore_spec(n_weapons=27, n_explore=6, **over) -> LayoutSpec:
     return spec
 
 
-@pytest.mark.parametrize("n_explore", [1, 2, 3, 4, 6])
+@pytest.mark.parametrize("n_explore", [1, 2, 3, 4])
 def test_exploration_stack_right_of_weapons_bottom_aligned(n_explore):
     spec = _explore_spec(n_explore=n_explore)
     layout = compute_layout(spec)
@@ -167,42 +183,48 @@ def test_exploration_stack_right_of_weapons_bottom_aligned(n_explore):
         assert b.rect.y - a.rect.bottom == layout.gap
     assert all(b.rect.h >= EXPLORATION_MIN_H for b in cards)
     assert max(b.rect.right for b in cards) <= W - layout.margin
-    if len(cards) == 4:                                                    # cao bị lưới giới hạn → đỉnh cũng trùng
-        assert cards[0].rect.y == grid.y
+    assert cards[0].rect.y >= grid.y                                       # không cao hơn lưới
 
 
-def test_exploration_drops_cards_that_do_not_fit_and_keeps_weapons():
+def test_exploration_never_drops_cards_row_above_weapons_when_no_side_room():
     without = compute_layout(_explore_spec(n_explore=0))
     spec = _explore_spec(n_explore=6)
     layout = compute_layout(spec)
-    assert len(layout.of("exploration")) == 4                    # 6 không vừa ≥ 72 px → bỏ 2 thẻ cuối
-    assert layout.of("weapons")[0].rect == without.of("weapons")[0].rect   # lưới vũ khí không đổi
-    assert layout.of("profile")[0].rect == without.of("profile")[0].rect
+    cards = sorted(layout.of("exploration"), key=lambda b: b.index)
+    grid = layout.of("weapons")[0].rect
+    assert len(cards) == 6 and [b.index for b in cards] == list(range(6))   # đủ mọi thẻ, không bỏ thẻ nào
+    assert layout.problems(spec) == []
+    assert all(b.rect.bottom + layout.gap <= grid.y for b in cards)         # dải ngang TRÊN khối vũ khí
+    assert layout.weapon_plan == without.weapon_plan                        # lưới vũ khí giữ nguyên
     assert not without.of("exploration")
 
 
 @pytest.mark.parametrize("side,family", [(None, "right"), ("right", "left")])
-def test_exploration_on_free_side_in_side_families(side, family):
-    # cột phải là cột chính → thẻ ở phía trống (trái lưới vũ khí); left: gương. 16 vũ khí (8 cột) thì
-    # phía trái chỉ còn ≈ 258 px < rộng tối thiểu → không thẻ nào (xem test dưới)
+def test_exploration_all_cards_in_side_families(side, family):
+    # lưới vũ khí 1 hàng quá thấp cho cột thẻ cạnh nó → cả 3 thẻ nằm thành dải trên khối vũ khí
     spec = LayoutSpec(profile=(600, 222), characters=[CARD] * 25, weapons=[CARD] * 6,
                       explorations=[EXPLORE] * 3, code="#1", subject_side=side)
     layout = compute_layout(spec)
     assert layout.family == family and layout.problems(spec) == []
     grid = layout.of("weapons")[0].rect
     cards = layout.of("exploration")
-    assert cards and max(b.rect.bottom for b in cards) == grid.bottom
-    if family == "right":
-        assert all(b.rect.right + layout.gap == grid.x for b in cards)
-    else:
-        assert all(b.rect.x == grid.right + layout.gap for b in cards)
+    assert len(cards) == 3 and all(b.rect.bottom + layout.gap <= grid.y for b in cards)
     narrow = LayoutSpec(profile=(600, 222), characters=[CARD] * 25, weapons=[CARD] * 16,
                         explorations=[EXPLORE] * 3, code="#1", subject_side=side)
     layout = compute_layout(narrow)
-    assert layout.problems(narrow) == [] and not layout.of("exploration")
+    assert layout.problems(narrow) == [] and len(layout.of("exploration")) == 3
+
+
+def test_wide_single_block_mirrors_to_right_when_subject_left():
+    base = dict(profile=(600, 222), characters=[CARD] * 40, weapons=[CARD] * 27, code="#1")
+    normal = compute_layout(LayoutSpec(subject_side="right", **base), "wide")
+    mirrored = compute_layout(LayoutSpec(subject_side="left", **base), "wide")
+    assert normal.of("characters")[0].rect.x < W // 2 < mirrored.of("characters")[0].rect.x
+    assert mirrored.problems(LayoutSpec(subject_side="left", **base)) == []
 
 
 def test_weapon_plan_prefers_full_rows_and_stays_within_limit():
+    # bề rộng truyền vào là bề rộng được dùng (đã nhân WEAPON_SPAN / trừ cột thẻ khám phá)
     for n in range(1, 70):
         plan = _weapon_plan(n, 1400, 450, 1.0, 0.8)
         assert plan is not None and plan.cell <= WEAPON_CELL_MAX
@@ -418,3 +440,82 @@ def test_uid_slides_beside_strip_above_weapons(side, family):
         assert uid.right == min(r.x for r in items) - layout.gap and uid.x + TEXT_STROKE < weapons.x
     else:
         assert uid.x == max(r.right for r in items) + layout.gap and uid.right - TEXT_STROKE > weapons.right
+
+
+# ------------------------------------------------------------------ lưới nhân vật tách đôi (> 50)
+@pytest.mark.parametrize("n,groups", [(0, []), (30, [30]), (50, [50]), (51, [30, 21]), (55, [30, 25]),
+                                      (65, [35, 30]), (70, [35, 35]), (71, [40, 31]), (100, [50, 50])])
+def test_char_groups_split_by_rows(n, groups):
+    assert _char_groups(n) == groups and sum(groups) == n
+    if n > CHAR_SPLIT_THRESHOLD:
+        assert groups[0] % 5 == 0 and groups[0] >= groups[1]          # khối đầu đủ hàng, không nhỏ hơn
+
+
+def _split_spec(n_chars: int, **over) -> LayoutSpec:
+    spec = LayoutSpec(profile=(874, 180), characters=[(228, 300)] * n_chars, weapons=[(248, 304)] * 60,
+                      code="#TEST", uid_line="CHECK BUILD UID 800000001", watermark="@sora kiwi")
+    for k, v in over.items():
+        setattr(spec, k, v)
+    return spec
+
+
+def _blocks(layout):
+    frames = sorted(layout.of("characters"), key=lambda b: b.rect.x)
+    cells = [sorted((c for c in layout.of("character") if f.rect.x <= c.rect.x and c.rect.right <= f.rect.right),
+                    key=lambda b: b.index) for f in frames]
+    return cells, [f.rect for f in frames]
+
+
+def test_seventy_characters_split_into_two_balanced_blocks():
+    spec = _split_spec(70)
+    layout = compute_layout(spec)
+    assert layout.family == "wide" and layout.problems(spec) == []
+    cells, frames = _blocks(layout)
+    assert [len(c) for c in cells] == [35, 35]
+    assert [b.index for b in cells[0]] == list(range(35)) and [b.index for b in cells[1]] == list(range(35, 70))
+    assert all(_cols(c) == 5 for c in cells)
+    left, right = frames
+    assert left.x == layout.margin and right.right == W - layout.margin          # mép trái + mép phải
+    assert (left.w, left.h) == (right.w, right.h) and left.bottom == right.bottom
+    assert cells[0][0].rect.w == cells[1][0].rect.w                              # cùng cỡ thẻ
+    grid = layout.of("weapons")[0].rect
+    assert left.right < grid.x and grid.right < right.x                          # vũ khí ở giữa
+    assert abs((grid.x - left.right) - (right.x - grid.right)) <= 2              # cân hai bên
+    assert grid.w >= WEAPON_MIN_ASPECT * grid.h
+    for kind in ("profile", "uid"):
+        r = layout.of(kind)[0].rect
+        assert left.right < r.x and r.right < right.x
+
+
+def test_odd_rows_split_puts_larger_block_first():
+    spec = _split_spec(65)
+    layout = compute_layout(spec)
+    assert layout.problems(spec) == []
+    cells, frames = _blocks(layout)
+    assert [len(c) for c in cells] == [35, 30] and frames[0].h > frames[1].h
+
+
+def test_fifty_characters_stay_one_wider_column():
+    # ≤ 50: một cột; 10 hàng → cột ≈ 377 px, mép phải ≈ 420 (chủ dự án: ≈ 425; 65 nhân vật một cột cũ ≈ 300)
+    spec = _split_spec(50)
+    layout = compute_layout(spec)
+    assert layout.problems(spec) == [] and len(layout.of("characters")) == 1
+    chars = layout.of("characters")[0].rect
+    assert chars.w >= 370 and 400 <= chars.right <= 440
+    split = compute_layout(_split_spec(65))
+    assert all(f.rect.w >= 370 for f in split.of("characters"))                 # tách đôi: không bé lại
+
+
+@pytest.mark.parametrize("extra", [
+    {"explorations": [EXPLORE] * 3},
+    {"items": [(181, 100)], "explorations": [EXPLORE] * 3},
+    {"panels": [(420, 145)] * 3},
+    {"subject_side": "right", "extra_lines": ["DIE ID APPLE"]},
+])
+def test_split_layout_keeps_texts_items_explorations_clear(extra):
+    for n in (55, 70, 100):
+        spec = _split_spec(n, **extra)
+        layout = compute_layout(spec)
+        assert layout.problems(spec) == [] and len(layout.of("characters")) == 2
+        if spec.explorations:
+            assert layout.of("exploration")

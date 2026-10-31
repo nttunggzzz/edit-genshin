@@ -441,8 +441,8 @@ def test_sheet_exploration_cards_fit_layout(tmp_path):
     text = report.text_vi()
     assert "Khám phá < 40%: Snezhnaya 0%" in text
     assert len(report.explorations) + len(report.explorations_dropped) == 5
-    grid = layout.of("weapons")[0].rect
-    assert max(b.rect.bottom for b in layout.of("exploration")) == grid.bottom
+    assert len(sheet.explorations) == 5 and not report.explorations_dropped    # mọi vùng < 40 % đều có thẻ
+    assert layout.problems(build_spec(sheet, load_pieces(sheet, work), options, None)) == []
 
 
 def test_sheet_without_low_regions_has_no_exploration_cards(tmp_path):
@@ -481,31 +481,34 @@ def _c(i, rarity, cons=0, level=90):
     return HoyoChar(i, None, f"c{i}", rarity, "pyro", level, cons, None, None, None, None)
 
 
-@pytest.mark.parametrize("n5,strong,weak,total", [
-    (10, 15, 0, 25), (10, 13, 5, 25), (10, 13, 1, 20), (3, 1, 0, 4),
-    (7, 0, 0, 5),       # không còn 4★ → bỏ thẻ yếu nhất (kể cả 5★) để không có ô trống
-    (40, 30, 0, 70),    # không giới hạn
-    (30, 0, 9, 30), (0, 0, 0, 0),
+@pytest.mark.parametrize("n5,fours,total", [
+    (10, 15, 10),      # chia hết 5 → không thêm 4★
+    (23, 9, 25),       # dư 3 → thêm đúng 2 thẻ 4★
+    (7, 9, 10),        # dư 2 → thêm 3
+    (7, 1, 7),         # không đủ 4★ để lấp → giữ hết 5★, không thêm
+    (3, 5, 3), (5, 5, 5), (0, 9, 0),   # một hàng (≤ 5) hoặc không có 5★
+    (35, 20, 35), (62, 20, 65),        # nhiều 5★: không còn trần, chỉ lấp hàng
 ])
-def test_select_characters_counts(n5, strong, weak, total):
-    got = select_characters([_c(i, 5) for i in range(n5)] + [_c(100 + i, 4, level=80) for i in range(strong)]
-                            + [_c(200 + i, 4, level=20) for i in range(weak)])
+def test_select_characters_counts(n5, fours, total):
+    got = select_characters([_c(i, 5) for i in range(n5)] + [_c(100 + i, 4, level=80) for i in range(fours)])
     assert len(got) == total
-    if total >= n5:
-        assert sum(c.rarity == 5 for c in got) == n5
+    assert sum(c.rarity == 5 for c in got) == (n5 if total >= n5 else 0)
 
 
-def test_select_characters_fill_and_drop_order():
+def test_select_characters_adds_only_strongest_fours_to_fill_row():
     fives = [_c(i, 5, cons=0, level=20) for i in range(8)]
-    weak = [_c(100 + i, 4, cons=i % 4, level=(60, 50, 40, 20)[i % 4]) for i in range(12)]
-    got = select_characters(weak + fives)                  # 8 → lấp 2 thẻ yếu tốt nhất → 10
-    rank = sorted(weak, key=lambda c: (-c.constellation, -c.level, c.avatar_id))
+    fours = [_c(100 + i, 4, cons=i % 4, level=(60, 50, 40, 20)[i % 4]) for i in range(12)]
+    got = select_characters(fours + fives)                 # 8 → thêm đúng 2 thẻ 4★ mạnh nhất → 10
+    rank = sorted(fours, key=lambda c: (-c.constellation, -c.level, c.avatar_id))
     assert len(got) == 10 and {c.avatar_id for c in got if c.rarity == 4} == {c.avatar_id for c in rank[:2]}
     keys = [(-c.rarity, -c.level, -c.constellation, c.avatar_id) for c in got]
     assert keys == sorted(keys) and got[0].rarity == 5                 # thứ tự game, 5★ trước
-    strong = [_c(300 + i, 4, cons=i, level=80) for i in range(4)]     # 5 + 4 mạnh = 9, không còn 4★
-    got = select_characters(fives[:5] + strong)
-    assert len(got) == 5 and all(c.rarity == 5 for c in got)           # bỏ 4 thẻ 4★ yếu nhất
+    assert len(select_characters(fives[:5] + fours)) == 5              # 5★ chia hết 5 → không thêm 4★
+
+
+def test_select_characters_no_fixed_cap():
+    got = select_characters([_c(i, 5) for i in range(68)] + [_c(100 + i, 4) for i in range(9)])
+    assert len(got) == 70 and not hasattr(hoyolab, "MAX_DRAWN_CHARACTERS")
 
 
 def test_compact_profile_two_rows_or_one():
@@ -556,7 +559,8 @@ def test_enka_extras_from_cache(tmp_path, monkeypatch):
 
 def test_many_characters_layout_uid_above_weapons(tmp_path):
     _, sheet, report = _build(tmp_path, 48)
-    assert _full(len(sheet.characters), 5) and _full(len(sheet.weapons), 8)
+    cols = _rendered_weapon_cols(sheet, tmp_path / "work", RenderOptions())
+    assert _full(len(sheet.characters), 5) and _full(len(sheet.weapons), cols)
     if len(sheet.characters) < 48:
         assert f"Đã vẽ {len(sheet.characters)}/48 nhân vật" in report.text_vi()
     img, layout, _ = render_image(sheet, tmp_path / "work", RenderOptions(uid=UID, code="1116"))
@@ -583,7 +587,7 @@ def test_cli_writes_image(cli_env, monkeypatch, capsys, net_attempts):
     with Image.open(out) as im:
         assert im.size == (1920, 1080)
     printed = capsys.readouterr()
-    assert "Nhân vật (30)" in printed.out and str(out) in printed.out
+    assert "Nhân vật (" in printed.out and str(out) in printed.out
     assert "SECRET" not in printed.out + printed.err
     assert all(allowed_icon_url(u) and "game_record/genshin/api" not in u for u in net_attempts)
 

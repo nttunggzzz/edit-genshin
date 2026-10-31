@@ -6,6 +6,7 @@ import json
 import random
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from gacard.backgrounds import Background, BackgroundError, BackgroundLibrary, estimate_subject_side
@@ -159,6 +160,26 @@ def load_pieces(sheet: AccountSheet, base_dir: Path) -> PieceImages:
     return p
 
 
+def refine_subject_side(img: Image.Image, side: str | None) -> str | None:
+    """"center" (ước lượng thô) → "left"/"right" khi phần trên của ảnh (nơi có mặt) nghiêng rõ về một bên:
+    so chi tiết + màu ở 30 % mép trái với 30 % mép phải (tỉ lệ ≥ 1,25). Bố cục nhờ đó dồn khối sang bên
+    đối diện, không che mặt. Cân bằng thật sự (hoặc side khác center) thì giữ nguyên."""
+    if side != "center":
+        return side
+    rgb = np.asarray(img.convert("RGB").resize((192, 108), Image.Resampling.BILINEAR), dtype=np.float32) / 255
+    gray = rgb.mean(axis=2)
+    detail = (np.abs(np.diff(gray, axis=1))[:-1, :] + np.abs(np.diff(gray, axis=0))[:, :-1])[:60]
+    sat = (rgb.max(axis=2) - rgb.min(axis=2))[:-1, :-1][:60]
+    col = (detail * (0.5 + sat)).sum(axis=0)
+    n = len(col)
+    left, right = float(col[:int(n * 0.3)].sum()), float(col[int(n * 0.7):].sum())
+    if right >= 1.25 * left:
+        return "right"
+    if left >= 1.25 * right:
+        return "left"
+    return "center"
+
+
 def render_image(sheet: AccountSheet, base_dir: Path, options: RenderOptions,
                  backgrounds: BackgroundLibrary | None = None, *, background_file: Path | None = None,
                  characters: list[str] | None = None,
@@ -170,12 +191,12 @@ def render_image(sheet: AccountSheet, base_dir: Path, options: RenderOptions,
     if background_file is not None:
         with Image.open(background_file) as im:
             bg_img = im.convert("RGB")
-        subject_side = estimate_subject_side(bg_img)
+        subject_side = refine_subject_side(bg_img, estimate_subject_side(bg_img))
     else:
         bg_meta = choose_background(sheet, options, backgrounds, characters=characters, rng=rng)
         if bg_meta is not None and backgrounds is not None:
             bg_img = backgrounds.open_image(bg_meta)
-            subject_side = bg_meta.subject_side
+            subject_side = refine_subject_side(bg_img, bg_meta.subject_side)
     pieces = load_pieces(sheet, base_dir)
     spec = build_spec(sheet, pieces, options, subject_side)
     layout = compute_layout(spec, options.family)
