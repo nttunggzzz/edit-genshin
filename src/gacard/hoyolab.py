@@ -623,31 +623,120 @@ def layout_exploration_count(profile: tuple[int, int] | None, characters: list[t
     return len(compute_layout(spec, options.family).of("exploration"))
 
 
-def _complete_weapon_rows(base: list, spare: list, fit: WeaponFit, weakest: Callable) -> list:
-    """Như _complete_rows nhưng số cột lấy từ bố cục (`fit`), không cố định: ưu tiên tổng t mà lưới
-    vừa đủ hàng VỪA "đẹp" (phủ bề rộng, thẻ gần cỡ tối đa — layout.weapon_grid_fit): trước hết lấp bằng
-    `spare`; không được thì bớt thẻ yếu nhất, tối đa một hàng (vd acc 887630784: 30 → 27 = 9×3 thay vì
-    10×3 thẻ nhỏ); không có thì chỉ cần đủ hàng (lấp, rồi bớt)."""
+MIN_WEAPON_ROWS = 2
+MAX_WEAPON_ROWS = 8
+
+
+def _complete_weapon_rows(base: list, spare: list, fit: WeaponFit, weakest: Callable,
+                          min_keep: int = 0) -> list:
+    """Lưới vũ khí từ MIN_WEAPON_ROWS (2) đến MAX_WEAPON_ROWS (8) hàng, cột do bố cục chọn (`fit`),
+    hàng cuối luôn đủ trừ trường hợp không thể tránh được:
+    - Dưới 2 hàng: lấy thêm 4★ yếu từ `spare` (mạnh nhất trước) cho đến khi đủ ít nhất 2 hàng VÀ hàng cuối đủ.
+      Nếu không đủ 4★ để đạt 2 hàng: vẽ hết số vũ khí có sẵn (base + spare).
+    - Trên 8 hàng: bớt 4★ yếu nhất trước, KHÔNG BAO GIỜ bớt 5★ (`min_keep` = len(fives)), cho đến khi về tối đa
+      8 hàng VÀ hàng cuối đủ. Nếu chỉ riêng 5★ đã hơn 8 hàng: giữ hết 5★.
+    - Từ 2 đến 8 hàng: ưu tiên tổng t mà lưới vừa đủ hàng vừa 'đẹp' (phủ bề rộng) hoặc đủ hàng."""
+    n = len(base)
+    m = len(spare)
+    total_available = n + m
+    if n == 0 or total_available == 0:
+        return []
+
+    def cols_and_good(t: int) -> tuple[int, bool]:
+        if t <= 0:
+            return 0, False
+        return fit(t)
+
     def full(t: int) -> bool:
-        cols, _ = fit(t)
-        return cols > 0 and t % cols == 0
+        c, _ = cols_and_good(t)
+        return c > 0 and t % c == 0
+
+    def calc_rows(t: int) -> int:
+        c, _ = cols_and_good(t)
+        return (t + c - 1) // c if c > 0 else 0
+
+    def in_row_range(t: int) -> bool:
+        r = calc_rows(t)
+        return MIN_WEAPON_ROWS <= r <= MAX_WEAPON_ROWS
 
     def perfect(t: int) -> bool:
-        return full(t) and fit(t)[1]
+        c, g = cols_and_good(t)
+        return c > 0 and t % c == 0 and g and in_row_range(t)
 
-    n = len(base)
-    if n == 0 or perfect(n):
+    def ok(t: int) -> bool:
+        return full(t) and in_row_range(t)
+
+    base_rows = calc_rows(n) if n > 0 else 0
+
+    # Dưới 2 hàng: lấy thêm 4★ yếu
+    if base_rows < MIN_WEAPON_ROWS:
+        c0 = cols_and_good(n)[0] if n > 0 else 0
+        min_target = c0 * MIN_WEAPON_ROWS if c0 > 0 else 0
+
+        candidate = None
+        for t in range(max(n + 1, min_target), total_available + 1):
+            if perfect(t):
+                candidate = t
+                break
+        if candidate is None:
+            for t in range(max(n + 1, min_target), total_available + 1):
+                if ok(t):
+                    candidate = t
+                    break
+        if candidate is None and min_target > n + 1:
+            for t in range(n + 1, min_target):
+                if perfect(t):
+                    candidate = t
+                    break
+            if candidate is None:
+                for t in range(n + 1, min_target):
+                    if ok(t):
+                        candidate = t
+                        break
+
+        if candidate is not None:
+            return list(base) + list(spare[:candidate - n])
+        return list(base) + list(spare)
+
+    # Trên 8 hàng: bớt 4★ yếu nhất trước, không bao giờ bớt 5★
+    if base_rows > MAX_WEAPON_ROWS:
+        best_t = None
+        for t in range(n - 1, min_keep - 1, -1):
+            if ok(t):
+                best_t = t
+                break
+        if best_t is not None:
+            drop_count = n - best_t
+            drop = {id(x) for x in sorted(base, key=weakest)[:drop_count]}
+            return [x for x in base if id(x) not in drop]
+        # Chỉ riêng 5★ đã hơn 8 hàng: giữ hết 5★
+        return [x for x in base if (getattr(x, "rarity", 0) or 0) >= 5] or list(base)
+
+    # Từ 2 đến 8 hàng
+    if perfect(n):
         return list(base)
-    for t in range(n + 1, n + len(spare) + 1):
+    for t in range(n + 1, total_available + 1):
         if perfect(t):
             return list(base) + list(spare[:t - n])
-    for t in range(n - 1, 0, -1):
-        if n - t > fit(t)[0]:            # bớt tối đa một hàng
-            break
+    c_n, _ = cols_and_good(n)
+    max_drop = min(c_n, n - min_keep)
+    for t in range(n - 1, max(n - max_drop - 1, min_keep - 1), -1):
         if perfect(t):
-            drop = {id(x) for x in sorted(base, key=weakest)[:n - t]}
+            drop_count = n - t
+            drop = {id(x) for x in sorted(base, key=weakest)[:drop_count]}
             return [x for x in base if id(x) not in drop]
-    return _complete_rows(base, spare, full, weakest)
+    if ok(n):
+        return list(base)
+    for t in range(n + 1, total_available + 1):
+        if ok(t):
+            return list(base) + list(spare[:t - n])
+    for t in range(n - 1, min_keep - 1, -1):
+        if ok(t):
+            drop_count = n - t
+            drop = {id(x) for x in sorted(base, key=weakest)[:drop_count]}
+            return [x for x in base if id(x) not in drop]
+
+    return list(base)
 
 
 def _complete_rows(base: list, spare: list, ok: Callable[[int], bool], weakest: Callable) -> list:
@@ -671,16 +760,18 @@ def strong_weapon(w: HoyoWeapon) -> bool:
 
 
 def select_weapons(weapons: list[HoyoWeapon], fit: WeaponFit | None = None) -> list[HoyoWeapon]:
-    """Bỏ mọi vũ khí 1–3★ (và không rõ độ hiếm); giữ hết 5★ + 4★ mạnh (strong_weapon), không giới hạn
-    số lượng; hàng cuối lưới luôn đủ theo đúng số cột bố cục chọn (`fit`, xem layout_weapon_fit; mặc
-    định 8 cột): lấp bằng 4★ kế tiếp (tinh luyện ↓, cấp ↓), ưu tiên tổng làm lưới phủ hết bề rộng; hết
-    4★ thì bỏ thẻ yếu nhất. Trả về theo thứ tự vẽ."""
+    """Bỏ mọi vũ khí 1–3★ (và không rõ độ hiếm); giữ hết 5★ + 4★ mạnh (strong_weapon), không bao giờ bớt 5★;
+    lưới có từ MIN_WEAPON_ROWS (2) đến MAX_WEAPON_ROWS (8) hàng theo số cột bố cục chọn (`fit`, mặc định 8 cột):
+    hàng cuối luôn đủ (trừ khi không thể tránh được); dưới 2 hàng lấp 4★ yếu cho đủ ít nhất 2 hàng; trên 8 hàng
+    bớt 4★ yếu nhất về tối đa 8 hàng; không đủ 4★ để đạt 2 hàng thì vẽ hết; chỉ riêng 5★ hơn 8 hàng thì giữ hết 5★.
+    Trả về theo thứ tự vẽ."""
     fives = [w for w in weapons if w.rarity == 5]
     fours = sorted((w for w in weapons if w.rarity == 4), key=_four_star_rank)
     base = fives + [w for w in fours if strong_weapon(w)]
     spare = [w for w in fours if not strong_weapon(w)]
     weakest = lambda w: (w.rarity or 0, w.refinement or 0, w.level or 0, -w.weapon_id)  # noqa: E731
-    return sorted(_complete_weapon_rows(base, spare, fit or _fixed_fit, weakest), key=_weapon_sort_key)
+    return sorted(_complete_weapon_rows(base, spare, fit or _fixed_fit, weakest, min_keep=len(fives)),
+                  key=_weapon_sort_key)
 
 
 def _char_sort_key(c: HoyoChar) -> tuple:
@@ -891,6 +982,8 @@ class HoyolabReport:
     weapons_dropped_low: int = 0                               # 1–3★ bỏ
     weapons_dropped_4: int = 0                                 # 4★ bỏ để lưới đủ hàng
     weapon_rarity: dict[int, int] = field(default_factory=dict)   # độ hiếm → số đã vẽ
+    weapon_less_than_min_rows: bool = False                    # tổng vũ khí ít hơn tối thiểu 2 hàng
+    weapon_5star_exceed_max_rows: bool = False                 # chỉ riêng vũ khí 5★ đã hơn tối đa 8 hàng
     missing_icons: list[str] = field(default_factory=list)
     unknown_avatars: list[int] = field(default_factory=list)
     explorations: list[str] = field(default_factory=list)          # thẻ khám phá đã vẽ ("Tên 35.5%")
@@ -932,6 +1025,13 @@ class HoyolabReport:
             dropped.append(f"{self.weapons_dropped_4} vũ khí 4★ yếu (giữ 4★ tinh luyện ≥ {STRONG_WEAPON_REF} "
                            f"hoặc cấp ≥ {STRONG_WEAPON_LEVEL}, lấp/bớt cho hàng cuối đủ, không ô trống)")
         lines.append(line + ("; bỏ " + ", ".join(dropped) if dropped else "") + ".")
+        if self.weapon_less_than_min_rows:
+            lines.append(f"Acc chỉ có tổng {len(self.weapons)} vũ khí (4–5★), ít hơn tối thiểu {MIN_WEAPON_ROWS} hàng: "
+                         f"vẽ hết {len(self.weapons)} vũ khí có sẵn, không thêm vũ khí nào.")
+        elif self.weapon_5star_exceed_max_rows:
+            fives_count = self.weapon_rarity.get(5, 0)
+            lines.append(f"Chỉ riêng vũ khí 5★ ({fives_count} vũ khí) đã hơn tối đa {MAX_WEAPON_ROWS} hàng: "
+                         f"giữ hết vũ khí 5★ (không chia khối trong đợt này).")
         limit = format_percent(EXPLORATION_MAX_PERMILLE)
         if self.explorations or self.explorations_dropped:
             text = f"Khám phá < {limit}: " + (", ".join(self.explorations) or "không vẽ thẻ nào")
@@ -1040,6 +1140,11 @@ def build_sheet_from_data(index_data: dict, list_data: dict, work_dir: Path, ico
     expl_sizes = [EXPLORATION_SIZE] * len(regions)
     fit = layout_weapon_fit(prof.size, [CHAR_SIZE] * len(chars), WEAPON_SIZE, options, expl_sizes)
     weapons = select_weapons(equipped, fit)
+    w_cols, _ = fit(len(weapons)) if len(weapons) > 0 else (0, False)
+    w_rows = (len(weapons) + w_cols - 1) // w_cols if w_cols > 0 else 0
+    fives_count = sum(1 for w in equipped if w.rarity == 5)
+    fives_cols, _ = fit(fives_count) if fives_count > 0 else (0, False)
+    fives_rows = (fives_count + fives_cols - 1) // fives_cols if fives_cols > 0 else 0
     shown = layout_exploration_count(prof.size, [CHAR_SIZE] * len(chars), [WEAPON_SIZE] * len(weapons),
                                      expl_sizes, options)
     regions, dropped_regions = regions[:shown], regions[shown:]
@@ -1053,7 +1158,9 @@ def build_sheet_from_data(index_data: dict, list_data: dict, work_dir: Path, ico
                            weapons_equipped=len(equipped),
                            weapons_dropped_low=sum(1 for w in equipped if (w.rarity or 0) < 4),
                            weapons_dropped_4=sum(1 for w in equipped if w.rarity == 4)
-                           - sum(1 for w in weapons if w.rarity == 4))
+                           - sum(1 for w in weapons if w.rarity == 4),
+                           weapon_less_than_min_rows=(0 < len(weapons) and w_rows < MIN_WEAPON_ROWS),
+                           weapon_5star_exceed_max_rows=(fives_rows > MAX_WEAPON_ROWS))
     for w in weapons:
         report.weapon_rarity[w.rarity or 0] = report.weapon_rarity.get(w.rarity or 0, 0) + 1
 

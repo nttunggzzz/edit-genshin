@@ -332,14 +332,16 @@ def test_select_weapons_drops_low_rarity_and_fills_with_best_weak():
     rank = sorted(weak, key=lambda w: (-w.refinement, -w.level, w.weapon_id))
     assert {w.weapon_id for w in got if w.rarity == 4} == {w.weapon_id for w in rank[:6]}
     assert [w.rarity for w in got] == [5] * 10 + [4] * 6                 # 5★ trước
-    assert len(select_weapons(lows + fives[:6] + weak)) == 6              # 6 ≤ 8: một hàng đủ
+    assert len(select_weapons(lows + fives[:6] + weak)) == 16             # < 2 hàng: lấp thêm 4★ yếu cho đủ 2 hàng (16 thẻ)
+    assert len(select_weapons(lows + fives[:6])) == 6                     # không có thẻ yếu: vẽ hết 6 thẻ có sẵn
 
 
 @pytest.mark.parametrize("n5,strong,weak,total", [
     (6, 2, 0, 8),       # 5★ + 4★ mạnh vừa đủ hàng
     (6, 3, 10, 16),     # hàng cuối thiếu → lấp bằng 4★ yếu tốt nhất
     (3, 2, 0, 5),       # một hàng < 8 thẻ: số cột = số thẻ, không ô trống
-    (10, 3, 2, 8),      # 4★ không đủ lấp → bỏ thẻ yếu nhất tới hàng đủ
+    (10, 3, 2, 13),     # không thể hạ về 8 mà không bớt 5★, nên giữ nguyên 13 thẻ dù hàng cuối chưa đủ
+    (10, 10, 0, 16),    # 20 thẻ → bớt 4 thẻ 4★ yếu nhất về 16 thẻ (8 cột × 2 hàng), giữ nguyên 10 thẻ 5★
     (20, 21, 0, 40),    # mặc định 8 cột: 41 → bớt về 40
     (20, 20, 8, 40),    # không giới hạn số lượng
     (30, 30, 4, 64),
@@ -654,3 +656,75 @@ def test_cli_interactive_verification(cli_env, monkeypatch):
     assert hoyolab.main([UID, "--out", str(out)]) == 0
     assert out.is_file() and opened == [BATTLE_CHRONICLE_URL] and len(asked) == 1
     assert [c["path"] for c in tr.calls] == ["index", "index", "character/list"]
+
+
+# ------------------------------------------------------------------ luật vũ khí mới (MIN 2 hàng, MAX 8 hàng)
+
+def test_weapon_rows_expands_one_row_to_min_two_rows_full():
+    # 1 hàng lên 2 hàng và hàng cuối đủ
+    # Trường hợp 1: bố cục 8 cột mặc định, 6 5★ (1 hàng) + 12 4★ yếu -> lấp thêm 10 4★ yếu thành 16 (8 cột × 2 hàng)
+    lows = [_w(900 + i, 1) for i in range(3)]
+    fives = [_w(i, 5) for i in range(6)]
+    weak = [_w(100 + i, 4, refinement=1 + i % 2, level=40) for i in range(12)]
+    got = select_weapons(lows + fives + weak)
+    assert len(got) == 16
+    assert sum(w.rarity == 5 for w in got) == 6
+    assert all(w.rarity in (4, 5) for w in got)
+    assert len(got) % 8 == 0
+
+    # Trường hợp 2: ví dụ của Muse: 10 thẻ mạnh xếp 10 cột thành 1 hàng -> thêm 4★ yếu cho đủ 20 thẻ thành 10 cột × 2 hàng
+    fit_10 = lambda t: (10, True)
+    fives_10 = [_w(i, 5) for i in range(4)]
+    strong_4 = [_w(50 + i, 4, refinement=3, level=90) for i in range(6)]
+    weak_14 = [_w(100 + i, 4, refinement=1, level=20) for i in range(14)]
+    got_20 = select_weapons(fives_10 + strong_4 + weak_14, fit_10)
+    assert len(got_20) == 20
+    assert len(got_20) % 10 == 0
+
+
+def test_weapon_rows_caps_over_eight_rows_without_dropping_five_star():
+    # Quá 8 hàng về 8 hàng và không bao giờ bớt 5★
+    # Trường hợp 1: 10 5★ + 70 4★ mạnh = 80 thẻ (10 hàng 8 cột) -> bớt 4★ yếu nhất về 64 thẻ (8 hàng 8 cột)
+    base_80 = [_w(i, 5) for i in range(10)] + [_w(100 + i, 4, refinement=1 + i % 4, level=80) for i in range(70)]
+    got = select_weapons(base_80)
+    assert len(got) == 64
+    assert len(got) % 8 == 0
+    assert sum(w.rarity == 5 for w in got) == 10  # Giữ đủ cả 10 thẻ 5★
+
+    # Trường hợp 2: chỉ riêng 5★ đã hơn 8 hàng (70 5★ > 64) -> giữ hết 70 5★, không bao giờ bớt 5★
+    base_70_fives = [_w(i, 5) for i in range(70)] + [_w(200 + i, 4, refinement=1, level=85) for i in range(5)]
+    got_fives = select_weapons(base_70_fives)
+    assert len(got_fives) == 70
+    assert all(w.rarity == 5 for w in got_fives)
+
+
+def test_weapon_rows_few_weapons_draws_all_and_reports():
+    # Ít vũ khí thì vẽ hết và báo cáo ghi rõ tổng số
+    fives = [_w(i, 5) for i in range(2)]
+    strong_4 = [_w(50 + i, 4, level=90) for i in range(2)]
+    weak_4 = [_w(100, 4, level=20)]
+    all_wp = fives + strong_4 + weak_4  # tổng 5 vũ khí
+    got = select_weapons(all_wp)
+    assert len(got) == 5  # Không đủ 2 hàng (16 thẻ) -> vẽ hết cả 5 vũ khí có sẵn
+
+    report = hoyolab.HoyolabReport(
+        weapons=[w.name for w in got],
+        weapons_equipped=len(all_wp),
+        weapon_rarity={5: 2, 4: 3},
+        weapon_less_than_min_rows=True,
+    )
+    text = report.text_vi()
+    assert "Acc chỉ có tổng 5 vũ khí (4–5★), ít hơn tối thiểu 2 hàng" in text
+    assert "vẽ hết 5 vũ khí có sẵn, không thêm vũ khí nào" in text
+
+    # Báo cáo trường hợp 5★ vượt quá 8 hàng
+    report_5star = hoyolab.HoyolabReport(
+        weapons=[f"w{i}" for i in range(70)],
+        weapons_equipped=70,
+        weapon_rarity={5: 70},
+        weapon_5star_exceed_max_rows=True,
+    )
+    text_5star = report_5star.text_vi()
+    assert "Chỉ riêng vũ khí 5★ (70 vũ khí) đã hơn tối đa 8 hàng" in text_5star
+    assert "giữ hết vũ khí 5★ (không chia khối trong đợt này)" in text_5star
+
