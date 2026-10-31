@@ -482,28 +482,39 @@ def _c(i, rarity, cons=0, level=90):
 
 
 @pytest.mark.parametrize("n5,fours,total", [
-    (10, 15, 10),      # chia hết 5 → không thêm 4★
-    (23, 9, 25),       # dư 3 → thêm đúng 2 thẻ 4★
-    (7, 9, 10),        # dư 2 → thêm 3
-    (7, 1, 7),         # không đủ 4★ để lấp → giữ hết 5★, không thêm
-    (3, 5, 3), (5, 5, 5), (0, 9, 0),   # một hàng (≤ 5) hoặc không có 5★
-    (35, 20, 35), (62, 20, 65),        # nhiều 5★: không còn trần, chỉ lấp hàng
+    (10, 15, 25),      # dưới 25 → thêm 4★ cho đủ 5 hàng
+    (23, 9, 25),       # dư 3 → thêm đúng 2 thẻ 4★, cũng đủ 5 hàng
+    (7, 9, 16),        # dưới 25, chỉ có 9 thẻ 4★ → thêm hết, tổng 16 (không bịa)
+    (7, 1, 8),         # dưới 25, chỉ có 1 thẻ 4★ → thêm hết, tổng 8
+    (3, 5, 8), (5, 5, 10), (0, 9, 9),   # dưới 25 → thêm hết 4★ có
+    (28, 20, 30),      # 28 → lấp hàng cuối thành 30 (6 hàng)
+    (35, 20, 35), (62, 20, 65),        # nhiều 5★: chỉ lấp hàng, không trần 50 trên một khối
 ])
 def test_select_characters_counts(n5, fours, total):
     got = select_characters([_c(i, 5) for i in range(n5)] + [_c(100 + i, 4, level=80) for i in range(fours)])
     assert len(got) == total
     assert sum(c.rarity == 5 for c in got) == (n5 if total >= n5 else 0)
+    assert len(got) % 5 == 0 or len(got) == n5 + fours  # hàng cuối đủ 5, trừ khi hết nhân vật để thêm
 
 
 def test_select_characters_adds_only_strongest_fours_to_fill_row():
-    fives = [_c(i, 5, cons=0, level=20) for i in range(8)]
+    fives = [_c(i, 5, cons=0, level=20) for i in range(28)]
     fours = [_c(100 + i, 4, cons=i % 4, level=(60, 50, 40, 20)[i % 4]) for i in range(12)]
-    got = select_characters(fours + fives)                 # 8 → thêm đúng 2 thẻ 4★ mạnh nhất → 10
+    got = select_characters(fours + fives)                 # 28 → thêm đúng 2 thẻ 4★ mạnh nhất → 30
     rank = sorted(fours, key=lambda c: (-c.constellation, -c.level, c.avatar_id))
-    assert len(got) == 10 and {c.avatar_id for c in got if c.rarity == 4} == {c.avatar_id for c in rank[:2]}
+    assert len(got) == 30 and {c.avatar_id for c in got if c.rarity == 4} == {c.avatar_id for c in rank[:2]}
     keys = [(-c.rarity, -c.level, -c.constellation, c.avatar_id) for c in got]
     assert keys == sorted(keys) and got[0].rarity == 5                 # thứ tự game, 5★ trước
-    assert len(select_characters(fives[:5] + fours)) == 5              # 5★ chia hết 5 → không thêm 4★
+
+
+def test_select_characters_minimum_five_rows():
+    fives = [_c(i, 5, cons=0, level=20) for i in range(12)]
+    fours = [_c(100 + i, 4, cons=i % 4, level=(60, 50, 40, 20)[i % 4]) for i in range(20)]
+    got = select_characters(fours + fives)                 # 12 → thêm 13 thẻ 4★ mạnh nhất → 25 (5 hàng)
+    rank = sorted(fours, key=lambda c: (-c.constellation, -c.level, c.avatar_id))
+    assert len(got) == 25 and len(got) % 5 == 0
+    assert sum(c.rarity == 5 for c in got) == 12
+    assert {c.avatar_id for c in got if c.rarity == 4} == {c.avatar_id for c in rank[:13]}
 
 
 def test_select_characters_no_fixed_cap():

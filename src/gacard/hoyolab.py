@@ -692,17 +692,26 @@ def strong_character(c: HoyoChar) -> bool:
     return (c.level or 0) >= STRONG_CHAR_LEVEL or (c.constellation or 0) >= STRONG_CHAR_CONS
 
 
+MIN_DRAWN_CHARACTERS = 25    # lưới nhân vật tối thiểu 5 hàng × 5 cột
+MAX_DRAWN_ROWS = 10          # tối đa 10 hàng × 5 cột trên một khối (vượt quá thì bố cục tách hai khối)
+
+
 def select_characters(chars: list[HoyoChar]) -> list[HoyoChar]:
-    """Chủ yếu 5★: giữ HẾT 5★ (không bao giờ bỏ). Chỉ thêm 4★ khi cần lấp đủ hàng cuối của lưới 5 cột
-    (5★ chia 5 dư 3 → thêm đúng 2 thẻ 4★), chọn 4★ mạnh nhất (cung mệnh ↓, cấp ↓, avatar_id ↑); không
-    thêm 4★ nào ngoài số cần để lấp. 5★ chia hết 5 (hoặc ≤ 5, một hàng) thì không thêm 4★. Không đủ 4★
-    để lấp thì không thêm (không bỏ 5★). Không có trần: > 50 thẻ thì bố cục tách hai khối cân bằng.
+    """Chủ yếu 5★: giữ HẾT 5★ (không bao giờ bỏ). Lưới luôn đủ 5 cột một hàng, tối thiểu 5 hàng
+    (25 thẻ) và tối đa 10 hàng (50 thẻ) trên một khối:
+    - Dưới 25 thẻ 5★: thêm 4★ mạnh nhất (cung mệnh ↓, cấp ↓, avatar_id ↑) cho đủ 25 thẻ.
+    - Từ 25 thẻ 5★ trở lên: chỉ thêm 4★ khi cần lấp đủ hàng cuối của lưới 5 cột
+    (5★ chia 5 dư 3 → thêm đúng 2 thẻ 4★); không thêm 4★ nào ngoài số cần để lấp.
+    - Không đủ 4★ để lấp/đủ 25 thì thêm hết số 4★ có (không bỏ 5★, không bịa nhân vật).
+    - > 50 thẻ thì bố cục tách hai khối cân bằng (xem layout._char_groups).
     Trả về theo thứ tự game."""
     fives = [c for c in chars if (c.rarity or 0) >= 5]
     fours = sorted((c for c in chars if (c.rarity or 0) < 5),
                    key=lambda c: (-(c.constellation or 0), -(c.level or 0), c.avatar_id))
     take: list[HoyoChar] = []
-    if len(fives) > CHAR_COLS and len(fives) % CHAR_COLS:
+    if len(fives) < MIN_DRAWN_CHARACTERS:
+        take = fours[:MIN_DRAWN_CHARACTERS - len(fives)]
+    elif len(fives) % CHAR_COLS:
         up = CHAR_COLS - len(fives) % CHAR_COLS                    # số thẻ thiếu để đủ hàng
         if len(fours) >= up:
             take = fours[:up]
@@ -906,7 +915,7 @@ class HoyolabReport:
         if total > len(self.characters):
             n4 = len(self.characters) - self.characters_5
             lines.append(f"Đã vẽ {len(self.characters)}/{total} nhân vật ({self.characters_5}×5★ + {n4}×4★: "
-                         f"giữ hết 5★, chỉ thêm 4★ mạnh nhất (cung ↓, cấp ↓) khi cần lấp đủ hàng 5); "
+                         f"giữ hết 5★, thêm 4★ mạnh nhất (cung ↓, cấp ↓) để đủ tối thiểu 5 hàng và lấp đủ hàng 5); "
                          f"bỏ {total - len(self.characters)} nhân vật 4★.")
         if self.avatar_number is not None and self.avatar_number != total:
             lines.append(f"Lưu ý: index báo {self.avatar_number} nhân vật nhưng danh sách có {total}.")
