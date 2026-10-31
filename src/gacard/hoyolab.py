@@ -917,6 +917,9 @@ class HoyolabReport:
             lines.append(f"Đã vẽ {len(self.characters)}/{total} nhân vật ({self.characters_5}×5★ + {n4}×4★: "
                          f"giữ hết 5★, thêm 4★ mạnh nhất (cung ↓, cấp ↓) để đủ tối thiểu 5 hàng và lấp đủ hàng 5); "
                          f"bỏ {total - len(self.characters)} nhân vật 4★.")
+        elif total < MIN_DRAWN_CHARACTERS:
+            lines.append(f"Acc chỉ có tổng {total} nhân vật, ít hơn tối thiểu {MIN_DRAWN_CHARACTERS}: vẽ hết {total} "
+                         f"nhân vật có sẵn, không thêm nhân vật nào.")
         if self.avatar_number is not None and self.avatar_number != total:
             lines.append(f"Lưu ý: index báo {self.avatar_number} nhân vật nhưng danh sách có {total}.")
         by = " + ".join(f"{self.weapon_rarity[r]}×{r}★" for r in sorted(self.weapon_rarity, reverse=True))

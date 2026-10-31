@@ -517,6 +517,18 @@ def test_select_characters_minimum_five_rows():
     assert {c.avatar_id for c in got if c.rarity == 4} == {c.avatar_id for c in rank[:13]}
 
 
+def test_select_characters_48_fives_draws_50():
+    got = select_characters([_c(i, 5) for i in range(48)] + [_c(100 + i, 4, cons=i % 3) for i in range(20)])
+    assert len(got) == 50 and sum(c.rarity == 5 for c in got) == 48     # lấp đúng 2 thẻ 4★ cho đủ hàng
+
+
+def test_report_states_total_when_account_has_under_25_characters(tmp_path):
+    _, sheet, report = _build(tmp_path, 20)
+    text = report.text_vi()
+    assert len(sheet.characters) == 20                       # vẽ hết số có sẵn, không bịa thêm
+    assert "tổng 20 nhân vật" in text and "không thêm nhân vật nào" in text
+
+
 def test_select_characters_no_fixed_cap():
     got = select_characters([_c(i, 5) for i in range(68)] + [_c(100 + i, 4) for i in range(9)])
     assert len(got) == 70 and not hasattr(hoyolab, "MAX_DRAWN_CHARACTERS")
